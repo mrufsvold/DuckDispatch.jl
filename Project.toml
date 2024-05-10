@@ -3,13 +3,27 @@ uuid = "d0bffa9f-dd89-4e62-9d7d-6ff335571524"
 authors = ["Micah Rufsvold"]
 version = "0.0.1"
 
+[deps]
+BangBang = "198e06fe-97b7-11e9-32a5-e1d131e6ad66"
+ExproniconLite = "55351af7-c7e9-48d6-89ff-24e801d99491"
+SumTypes = "8e1ec7a9-0e02-4297-b0fe-6433085c89f2"
+TestItems = "1c621080-faea-4a02-84b6-bbd5e436b8fe"
+
 [compat]
+Aqua = "0.8"
+ExproniconLite = "0.10.7"
+JuliaFormatter = "1.0.56"
+Test = "1.6"
+TestItemRunner = "0.2"
+TestItems = "0.1"
 julia = "1.11"
 
 [extras]
 Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
 JET = "c3a54625-cd67-489e-a8e7-0a5a0ff4e31b"
+JuliaFormatter = "98e50ef6-434e-11e9-1051-2b60c6c9e899"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+TestItemRunner = "f8b46487-2199-4994-9208-9a1283c18c0a"
 
 [targets]
-test = ["Aqua", "JET", "Test"]
+test = ["Aqua", "JET", "Test", "TestItemRunner", "JuliaFormatter"]
