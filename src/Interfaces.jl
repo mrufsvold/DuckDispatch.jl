@@ -94,7 +94,7 @@ function rewrap(::Type{OldInterface}, ::Type{NewInterface}, args) where {OldInte
     end
     return (rewrap_head, rewrap(OldInterface, NewInterface, tail)...)
 end
-function rewrap(::Any, ::Any, ::Tuple{})
+function rewrap(::Type{OldInterface}, ::Type{NewInterface}, ::Tuple{}) where {OldInterface, NewInterface}
     return ()
 end
 
