@@ -4,8 +4,8 @@ abstract type InterfaceKind end
 Meet describes the intersection of multiple interfaces. 
 
 """
-struct Meet{T<:NTuple{<:Any, InterfaceKind}} end
-function Meet(types...)
+struct Meet{T<:NTuple{<:Any, InterfaceKind}} <: InterfaceKind end
+function Meet(types::InterfaceKind...)
     return Meet{Tuple{types...}}
 end
 
@@ -136,6 +136,10 @@ end
 function meets_requirements(::Type{I}, ::Type{T})::Bool where {I<:InterfaceKind,T}
     return all(r -> is_method_implemented(r, T), required_methods(I))
 end
+function meets_requirements(::Type{Meet{I}}, ::Type{T}) where {I, T}
+    constituent_interface_kinds = fieldtypes(I)
+    return all(meets_requirements.(constituent_interface_kinds, T))
+end
 function meets_requirements(::Type{Interface{I, <:Any}}, t)::Bool where I
     return meets_requirements(I, t)
 end
@@ -145,6 +149,11 @@ function is_method_implemented(r::RequiredMethod{F}, ::Type{T}) where {F,T}
     return length(methods(F, args)) > 0
 end
 
+"""
+    run(f, args)
+This method is called by all methods that are defined for an interface.
+It manages unwrapping all the interfaces in the arguments.
+"""
 function run(f, args)
     unwrapped_args = unwrap(args)
     return f(unwrapped_args...)
