@@ -69,7 +69,7 @@ function unwrap(x)
     return x
 end
 function unwrap(xs::Tuple)
-    tail, head = popfirst!!(xs)
+    head, tail = peel(xs)
     return (unwrap(head), unwrap(tail)...)
 end
 function unwrap(::Tuple{})
@@ -85,7 +85,7 @@ function rewrap(x::Interface{I1,<:Any}, ::Type{I2}) where {I1,I2<:InterfaceKind}
     return wrap(I2, unwrap(x))
 end
 function rewrap(::Type{OldInterface}, ::Type{NewInterface}, args) where {OldInterface, NewInterface}
-    tail, head = popfirst!!(args)
+    head, tail = peel(args)
     head_interface_type = extract_interface_kind(head)
     rewrap_head = if head_interface_type <: OldInterface
         head = rewrap(head, NewInterface)
