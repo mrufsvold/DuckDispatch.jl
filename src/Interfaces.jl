@@ -23,6 +23,26 @@ function Meet(::Type{T}, types::Type{<:InterfaceKind}...) where T <: InterfaceKi
 end
 
 """
+    @Meet(exprs...)
+This macro allows you to make a new parametric composite interface. It works like
+
+```
+const IsContainer{N, T} = @Meet(Indexable{T}, Sized{N})
+```
+"""
+macro Meet(exprs...)
+    return esc(make_meet_expr(exprs...))
+end
+
+function make_meet_expr(exprs...)
+    if length(exprs) == 1
+        return :($Meet{$(exprs[1]), Nothing})
+    end
+    head_expr, tail_exprs = peel(exprs)
+    return :($Meet{$(head_expr), $(make_meet_expr(tail_exprs...))})
+end
+
+"""
     implies(::InterfaceKind, ::InterfaceKind)
 Returns whether the first interface implies the second interface.
 """
