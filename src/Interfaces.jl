@@ -1,13 +1,48 @@
+"""
+An `InterfaceKind` describes the requirements of a kind of interface. For example, the `Indexable`
+InterfaceKind requires `getindex(::This, ::Any)`. Each InterfaceKind requires the following:
+
+Optional:
+`narrow` for InterfaceKinds with parameters
+`_required_methods` for leaf Kinds
+"""
 abstract type InterfaceKind end
 
 """
-Meet describes the intersection of multiple interfaces. 
+Meet describes the intersection of interfaces. 
+
+A Meet is a binary tree of composed interfaces. Order matters to the identity of the tree because
+clashing required method interfaces are overwritten by the later interface.
+"""
+struct Meet{T<Tuple{<:InterfaceKind, <:Union{Nothing,InterfaceKind}}} <: InterfaceKind end
+function Meet(::Type{T}) where T <: InterfaceKind
+    return Meet{Tuple{T,Nothing}}()
+end
+function Meet(::Type{T}, types::Type{<:InterfaceKind}...) where T <: InterfaceKind
+    return Meet{Tuple{T,Meet(types)}}()
+end
 
 """
-struct Meet{T<:NTuple{<:Any, InterfaceKind}} <: InterfaceKind end
-function Meet(types::InterfaceKind...)
-    return Meet{Tuple{types...}}
+    implies(::InterfaceKind, ::InterfaceKind)
+Returns whether the first interface implies the second interface.
+"""
+function implies(::Type{<:InterfaceKind}, ::Type{<:Meet})
+    return false
 end
+function implies(::Type{Meet{I, Nothing}}, ::Type{T}) where {I, T<:InterfaceKind}
+    T === I && return true
+    if I <: Meet
+        return implies(I, T)
+    end
+    return false
+end
+function implies(::Type{Meet{I, J}}, ::Type{T}) where {I, J, T<:InterfaceKind}
+    I === T && return true
+    J === T && return true
+    return implies(I, T) || implies(J, T)
+end
+
+
 
 """
     narrow(::Type{T}, ::Any) where {T <: InterfaceKind}
@@ -98,47 +133,27 @@ function rewrap(::Type{OldInterface}, ::Type{NewInterface}, ::Tuple{}) where {Ol
     return ()
 end
 
+"""
+    extract_interface_kind(::Type{Interface})
+Return the InterfaceKind of the Interface.
+"""
 function extract_interface_kind(::Type{Interface{I,<:Any}}) where I
     return I
 end
 
+"""Returns all the methods that must be defined to satisfy this interface
+This function is created for each InterfaceKind by the macro
 """
-    get_return_type(<:InterfaceKind, ::typeof(F))
-gets the return type of function F for the given InterfaceKind.
-"""
-function get_return_type end
-
-"""Returns the list of interfaces that are required to use this interface"""
-function required_interfaces(::Type{T}) where T <: InterfaceKind
+function required_methods(::Type{Meet{I, J}}) where {I, J}
+    return (required_methods(I)..., required_methods(J)...)
+end
+function required_methods(::Type{Nothing})
     return ()
-end
-
-"""Returns all the methods that must be defined to satisfy this interface"""
-function required_methods(::Type{I}) where {I<:InterfaceKind}
-    these_methods = _required_methods(I)
-
-    req_interfaces = required_interfaces(I)
-    length(req_interfaces) == 0 && return these_methods
-
-    methods_for_req_interfaces = map(required_methods, req_interfaces)
-    all_methods_nested = push!!(methods_for_req_interfaces, these_methods)
-    all_methods = reduce(append!!, all_methods_nested)
-    return all_methods
-end
-
-"""Internal function that returns only the methods that are required for this interface
-and not its children"""
-function _required_methods(::T) where T <: InterfaceKind 
-    return _required_methods(T)
 end
 
 """Returns whether the given type meets the requirements of the interface"""
 function meets_requirements(::Type{I}, ::Type{T})::Bool where {I<:InterfaceKind,T}
     return all(r -> is_method_implemented(r, T), required_methods(I))
-end
-function meets_requirements(::Type{Meet{I}}, ::Type{T}) where {I, T}
-    constituent_interface_kinds = fieldtypes(I)
-    return all(meets_requirements.(constituent_interface_kinds, T))
 end
 function meets_requirements(::Type{Interface{I, <:Any}}, t)::Bool where I
     return meets_requirements(I, t)
@@ -146,7 +161,17 @@ end
 
 function is_method_implemented(r::RequiredMethod{F}, ::Type{T}) where {F,T}
     args = replace_interface_with_t(r.arg_types, T)
-    return length(methods(F, args)) > 0
+    Ts = Tuple{args...}
+    return hasmethod(F, Ts)
+end
+
+function peel_interface_layer(f, ::Type{I}, args...) where {I <: InterfaceKind}
+    if hasmethod(f, typeof(args))
+        return run(f, I, args)
+    end
+end
+function peel_interface_layer(::Type{I}, arg) where {I <: InterfaceKind}
+
 end
 
 """
@@ -154,7 +179,8 @@ end
 This method is called by all methods that are defined for an interface.
 It manages unwrapping all the interfaces in the arguments.
 """
-function run(f, args)
+function run(f, ::Type{I}, args)
+    
     unwrapped_args = unwrap(args)
     return f(unwrapped_args...)
 end
