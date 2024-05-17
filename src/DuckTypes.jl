@@ -87,3 +87,15 @@ function implies(::Type{SigT}, ::Type{ArgT}) where {SigT<:Tuple, ArgT<:Tuple}
     return all(map(implies, sig_types, arg_types))
 end
 
+
+"""
+    narrow(::Type{T}, ::Any) where {T <: DuckType}
+A function which the user can overload to specify the most narrow type of DuckType
+that can wrap the type of data.
+
+Note that the dispatch for this function must overload in the type domain. Meaning that
+the signature should look like `narrow(::Type{MyGuise}, ::Type{D}) where D`.
+"""
+function narrow(::Type{T}, ::Any) where {T <: DuckType}
+    return T
+end

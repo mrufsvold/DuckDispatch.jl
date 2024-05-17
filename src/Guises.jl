@@ -1,25 +1,3 @@
-
-
-
-
-
-
-
-
-
-
-"""
-    narrow(::Type{T}, ::Any) where {T <: DuckType}
-A function which the user can overload to specify the most narrow type of DuckType
-that can wrap the type of data.
-
-Note that the dispatch for this function must overload in the type domain. Meaning that
-the signature should look like `narrow(::Type{MyGuise}, ::Type{D}) where D`.
-"""
-function narrow(::Type{T}, ::Any) where {T <: DuckType}
-    return T
-end
-
 """
     Guise{I<:DuckType,T}
 An wrapper for a specific DuckType around a specific type of data (`T`)
@@ -28,8 +6,11 @@ struct Guise{I<:DuckType,T}
     data::T
 end
 
+"""
+GenericWrap is a trait for dispatching the Guise constructor to 
+hide the type of the internal data with `Any`.
+"""
 struct GenericWrap end
-
 
 
 """
@@ -78,7 +59,6 @@ end
 Rewrap the data from the Guise in a new Guise for the new given Guise.
 """
 function rewrap(x::Guise{I1,<:Any}, ::Type{I2}) where {I1,I2<:DuckType}
-    I1 == I2 && return x
     return wrap(I2, unwrap(x))
 end
 function rewrap(::Type{OldGuise}, ::Type{NewGuise}, args) where {OldGuise, NewGuise}

@@ -42,15 +42,15 @@ function find_narrow_statement(statements)
     return findfirst(check, statements)
 end
 
-macro interface(interface_expr)
-    return _interface(interface_expr)
+macro duck_type(duck_type_expr)
+    return _duck_type(duck_type_expr)
 end
 
-function _interface(interface_expr)
-    jl_struct = JLStruct(interface_expr)
+function _duck_type(duck_type_expr)
+    jl_struct = JLStruct(duck_type_expr)
     required_statements = RequireStatements(jl_struct)
 
-    main_struct_expr = create_main_struct_def(interface_expr)
+    main_struct_expr = create_main_struct_def(duck_type_expr)
     required_method_expr = create_required_methods_func(required_statements)
     required_method_dispatch_exprs = create_exprs_for_required_methods(required_statements)
 
@@ -75,9 +75,9 @@ end
 """
 just creates `struct NewGuiseName <: DuckType end`
 """
-function create_main_struct_def(interface_expr)
+function create_main_struct_def(duck_type_expr)
     # todo: how to make this struct documentable?
-    jl_struct = JLStruct(interface_expr)
+    jl_struct = JLStruct(duck_type_expr)
     empty!(jl_struct.constructors)
     empty!(jl_struct.misc)
     jl_struct.supertype = DuckType
