@@ -1,94 +1,36 @@
-"""
-An `InterfaceKind` describes the requirements of a kind of interface. For example, the `Indexable`
-InterfaceKind requires `getindex(::This, ::Any)`. Each InterfaceKind requires the following:
 
-Optional:
-`narrow` for InterfaceKinds with parameters
-`_required_methods` for leaf Kinds
-"""
-abstract type InterfaceKind end
 
-"""
-Meet describes the intersection of interfaces. 
 
-A Meet is a binary tree of composed interfaces. Order matters to the identity of the tree because
-clashing required method interfaces are overwritten by the later interface.
-"""
-struct Meet{T<Tuple{<:InterfaceKind, <:Union{Nothing,InterfaceKind}}} <: InterfaceKind end
-function Meet(::Type{T}) where T <: InterfaceKind
-    return Meet{Tuple{T,Nothing}}()
-end
-function Meet(::Type{T}, types::Type{<:InterfaceKind}...) where T <: InterfaceKind
-    return Meet{Tuple{T,Meet(types)}}()
-end
 
-"""
-    @Meet(exprs...)
-This macro allows you to make a new parametric composite interface. It works like
 
-```
-const IsContainer{N, T} = @Meet(Indexable{T}, Sized{N})
-```
-"""
-macro Meet(exprs...)
-    return esc(make_meet_expr(exprs...))
-end
 
-function make_meet_expr(exprs...)
-    if length(exprs) == 1
-        return :($Meet{$(exprs[1]), Nothing})
-    end
-    head_expr, tail_exprs = peel(exprs)
-    return :($Meet{$(head_expr), $(make_meet_expr(tail_exprs...))})
-end
 
-"""
-    implies(::InterfaceKind, ::InterfaceKind)
-Returns whether the first interface implies the second interface.
-"""
-function implies(::Type{<:InterfaceKind}, ::Type{<:Meet})
-    return false
-end
-function implies(::Type{Meet{I, Nothing}}, ::Type{T}) where {I, T<:InterfaceKind}
-    T === I && return true
-    if I <: Meet
-        return implies(I, T)
-    end
-    return false
-end
-function implies(::Type{Meet{I, J}}, ::Type{T}) where {I, J, T<:InterfaceKind}
-    I === T && return true
-    J === T && return true
-    return implies(I, T) || implies(J, T)
-end
 
 
 
 """
-    narrow(::Type{T}, ::Any) where {T <: InterfaceKind}
-A function which the user can overload to specify the most narrow type of InterfaceKind
+    narrow(::Type{T}, ::Any) where {T <: DuckType}
+A function which the user can overload to specify the most narrow type of DuckType
 that can wrap the type of data.
 
 Note that the dispatch for this function must overload in the type domain. Meaning that
-the signature should look like `narrow(::Type{MyInterface}, ::Type{D}) where D`.
+the signature should look like `narrow(::Type{MyGuise}, ::Type{D}) where D`.
 """
-function narrow(::Type{T}, ::Any) where {T <: InterfaceKind}
+function narrow(::Type{T}, ::Any) where {T <: DuckType}
     return T
 end
 
 """
-    Interface{I<:InterfaceKind,T}
-An wrapper for a specific InterfaceKind around a specific type of data (`T`)
+    Guise{I<:DuckType,T}
+An wrapper for a specific DuckType around a specific type of data (`T`)
 """
-struct Interface{I<:InterfaceKind,T}
+struct Guise{I<:DuckType,T}
     data::T
 end
 
 struct GenericWrap end
 
-"""This is a placeholder type for generically referring to the current
-interface so that inheriting interfaces still make sense"""
-struct This <: InterfaceKind end
+
 
 """
     RequiredMethod 
@@ -99,25 +41,25 @@ struct RequiredMethod{F}
 end
 
 """
-    wrap(<:InterfaceKind, data)
-Check that the type of data satisfies the interface. Wrap the data in an Interface. 
+    wrap(<:DuckType, data)
+Check that the type of data satisfies the interface. Wrap the data in an Guise. 
 """
-function wrap(::Type{I}, d::T) where {I<:InterfaceKind,T}
+function wrap(::Type{I}, d::T) where {I<:DuckType,T}
     narrow_I = narrow(I, T)::Type{<:I}
-    meets_requirements(narrow_I, T) && return Interface{narrow_I,T}(d)
+    meets_requirements(narrow_I, T) && return Guise{narrow_I,T}(d)
     error("$T does not implement the interface $narrow_I")
 end
 
-function wrap(::GenericWrap, ::Type{I}, d::T) where {I<:InterfaceKind,T}
-    meets_requirements(I, T) && return Interface{I,Any}(d)
+function wrap(::GenericWrap, ::Type{I}, d::T) where {I<:DuckType,T}
+    meets_requirements(I, T) && return Guise{I,Any}(d)
     error("$T does not implement the interface $I")
 end
 
 """
-    unwrap(::Interface)
-Return the data wrapped in the Interface.
+    unwrap(::Guise)
+Return the data wrapped in the Guise.
 """
-function unwrap(x::Interface)
+function unwrap(x::Guise)
     return x.data
 end
 function unwrap(x)
@@ -132,37 +74,37 @@ function unwrap(::Tuple{})
 end
 
 """
-    rewrap(<:Interface, <:InterfaceKind)
-Rewrap the data from the Interface in a new Interface for the new given Interface.
+    rewrap(<:Guise, <:DuckType)
+Rewrap the data from the Guise in a new Guise for the new given Guise.
 """
-function rewrap(x::Interface{I1,<:Any}, ::Type{I2}) where {I1,I2<:InterfaceKind}
+function rewrap(x::Guise{I1,<:Any}, ::Type{I2}) where {I1,I2<:DuckType}
     I1 == I2 && return x
     return wrap(I2, unwrap(x))
 end
-function rewrap(::Type{OldInterface}, ::Type{NewInterface}, args) where {OldInterface, NewInterface}
+function rewrap(::Type{OldGuise}, ::Type{NewGuise}, args) where {OldGuise, NewGuise}
     head, tail = peel(args)
     head_interface_type = extract_interface_kind(head)
-    rewrap_head = if head_interface_type <: OldInterface
-        head = rewrap(head, NewInterface)
+    rewrap_head = if head_interface_type <: OldGuise
+        head = rewrap(head, NewGuise)
     else
         head
     end
-    return (rewrap_head, rewrap(OldInterface, NewInterface, tail)...)
+    return (rewrap_head, rewrap(OldGuise, NewGuise, tail)...)
 end
-function rewrap(::Type{OldInterface}, ::Type{NewInterface}, ::Tuple{}) where {OldInterface, NewInterface}
+function rewrap(::Type{OldGuise}, ::Type{NewGuise}, ::Tuple{}) where {OldGuise, NewGuise}
     return ()
 end
 
 """
-    extract_interface_kind(::Type{Interface})
-Return the InterfaceKind of the Interface.
+    extract_interface_kind(::Type{Guise})
+Return the DuckType of the Guise.
 """
-function extract_interface_kind(::Type{Interface{I,<:Any}}) where I
+function extract_interface_kind(::Type{Guise{I,<:Any}}) where I
     return I
 end
 
 """Returns all the methods that must be defined to satisfy this interface
-This function is created for each InterfaceKind by the macro
+This function is created for each DuckType by the macro
 """
 function required_methods(::Type{Meet{I, J}}) where {I, J}
     return (required_methods(I)..., required_methods(J)...)
@@ -172,10 +114,10 @@ function required_methods(::Type{Nothing})
 end
 
 """Returns whether the given type meets the requirements of the interface"""
-function meets_requirements(::Type{I}, ::Type{T})::Bool where {I<:InterfaceKind,T}
+function meets_requirements(::Type{I}, ::Type{T})::Bool where {I<:DuckType,T}
     return all(r -> is_method_implemented(r, T), required_methods(I))
 end
-function meets_requirements(::Type{Interface{I, <:Any}}, t)::Bool where I
+function meets_requirements(::Type{Guise{I, <:Any}}, t)::Bool where I
     return meets_requirements(I, t)
 end
 
@@ -185,12 +127,12 @@ function is_method_implemented(r::RequiredMethod{F}, ::Type{T}) where {F,T}
     return hasmethod(F, Ts)
 end
 
-function peel_interface_layer(f, ::Type{I}, args...) where {I <: InterfaceKind}
+function peel_interface_layer(f, ::Type{I}, args...) where {I <: DuckType}
     if hasmethod(f, typeof(args))
         return run(f, I, args)
     end
 end
-function peel_interface_layer(::Type{I}, arg) where {I <: InterfaceKind}
+function peel_interface_layer(::Type{I}, arg) where {I <: DuckType}
 
 end
 
@@ -206,29 +148,29 @@ function run(f, ::Type{I}, args)
 end
 
 @testitem "Basic interface wrapping test" begin
-    struct HasEltype{T} <: InterfaceDispatch.InterfaceKind end
-    InterfaceDispatch._required_methods(::Type{HasEltype{T}}) where {T} = (
-        InterfaceDispatch.RequiredMethod{eltype}(Tuple{InterfaceDispatch.This}),
+    struct HasEltype{T} <: DuckDispatch.DuckType end
+    DuckDispatch._required_methods(::Type{HasEltype{T}}) where {T} = (
+        DuckDispatch.RequiredMethod{eltype}(Tuple{DuckDispatch.This}),
         )
-    struct IsIterable{T} <: InterfaceDispatch.InterfaceKind end
-    InterfaceDispatch._required_methods(::Type{IsIterable{T}}) where {T} = (
-        InterfaceDispatch.RequiredMethod{iterate}(Tuple{InterfaceDispatch.This}),
-        InterfaceDispatch.RequiredMethod{iterate}(Tuple{InterfaceDispatch.This, Any}),
+    struct IsIterable{T} <: DuckDispatch.DuckType end
+    DuckDispatch._required_methods(::Type{IsIterable{T}}) where {T} = (
+        DuckDispatch.RequiredMethod{iterate}(Tuple{DuckDispatch.This}),
+        DuckDispatch.RequiredMethod{iterate}(Tuple{DuckDispatch.This, Any}),
         )
     
-    InterfaceDispatch.required_interfaces(::Type{IsIterable{T}}) where {T} = (HasEltype{T},)
+    DuckDispatch.required_interfaces(::Type{IsIterable{T}}) where {T} = (HasEltype{T},)
     
     # Here we check that we correctly fail when trying to wrap a type which does not adhere to the interface.
-    @test !InterfaceDispatch.is_method_implemented(
-        InterfaceDispatch.RequiredMethod{iterate}(Tuple{InterfaceDispatch.This}), 
+    @test !DuckDispatch.is_method_implemented(
+        DuckDispatch.RequiredMethod{iterate}(Tuple{DuckDispatch.This}), 
         Nothing
         )
-    @test_throws ErrorException InterfaceDispatch.wrap(IsIterable{Int}, nothing)
+    @test_throws ErrorException DuckDispatch.wrap(IsIterable{Int}, nothing)
     
-    interface = InterfaceDispatch.wrap(HasEltype{Int}, [1, 2])
-    @test interface isa InterfaceDispatch.Interface{HasEltype{Int},Vector{Int}}
-    @test InterfaceDispatch.unwrap(interface) == ([1, 2])
-    @test InterfaceDispatch.rewrap(interface, IsIterable{Int}) isa InterfaceDispatch.Interface{IsIterable{Int},Vector{Int}}
+    interface = DuckDispatch.wrap(HasEltype{Int}, [1, 2])
+    @test interface isa DuckDispatch.Guise{HasEltype{Int},Vector{Int}}
+    @test DuckDispatch.unwrap(interface) == ([1, 2])
+    @test DuckDispatch.rewrap(interface, IsIterable{Int}) isa DuckDispatch.Guise{IsIterable{Int},Vector{Int}}
 end
 
 

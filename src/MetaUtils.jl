@@ -104,19 +104,19 @@ end
 
 function arg_with_interface_type_check(func_arg::FuncArg)
     t_ann = get_type_annotation(func_arg)
-    return :($t_ann <: $InterfaceKind ? Any : $t_ann)
+    return :($t_ann <: $DuckType ? Any : $t_ann)
 end
 
 function arg_with_interface_wrap_check(func_arg::FuncArg)
     return @cases func_arg.type_annotation begin
         none => :($(func_arg.name)::Any)
-        [symbol, expr](type_param) => :($(func_arg.name)::($type_param <: $InterfaceKind ? $Interface{$type_param, <:Any} : $type_param))
+        [symbol, expr](type_param) => :($(func_arg.name)::($type_param <: $DuckType ? $Guise{$type_param, <:Any} : $type_param))
     end
 end
 
 """
 This takes the arg annotations passed to the @interface macro and wraps them in a check for if the
-the type is `This` or any other interface. Then it switches them out for an Interface{...} wrap
+the type is `This` or any other interface. Then it switches them out for an Guise{...} wrap
 """
 function arg_with_this_check(func_arg::FuncArg, interface_name)
     return @cases func_arg.type_annotation begin
@@ -130,10 +130,10 @@ function make_this_check_annotation(type_param, interface_name)
     return :(
         # This should be replaced by the interface
         if $(esc_type_param) <: $This
-            $Interface{$(esc(interface_name)), <:Any}
+            $Guise{$(esc(interface_name)), <:Any}
         # Other interfaces should be replaced with an Interfae wrap
-        elseif $(esc_type_param) <: $InterfaceKind
-            $Interface{$(esc_type_param), <:Any}
+        elseif $(esc_type_param) <: $DuckType
+            $Guise{$(esc_type_param), <:Any}
         else
             $(esc_type_param)
         end
@@ -158,7 +158,7 @@ end
     using ExproniconLite: JLFunction, @test_expr
     using SumTypes
     jlf = JLFunction(:(f(a, b::Int, c::Vector{Int}) = nothing))
-    func_args = InterfaceDispatch.FuncArg.(jlf.args)
+    func_args = DuckDispatch.FuncArg.(jlf.args)
     function unpack(func_arg)
         variant, content = @cases func_arg.type_annotation begin
             none    => (:none, nothing)
@@ -174,12 +174,12 @@ end
     ]
 
     jlf = JLFunction(:(f(a, b::Int, c::Vector{T}) where T = "hi!"))
-    func_args = InterfaceDispatch.FuncArg.(jlf.args)
-    annotation_checks = InterfaceDispatch.arg_with_interface_type_check.(func_args)
+    func_args = DuckDispatch.FuncArg.(jlf.args)
+    annotation_checks = DuckDispatch.arg_with_interface_type_check.(func_args)
 
-    @test_expr annotation_checks[1] == :((Any<:$(InterfaceDispatch.InterfaceKind) ? Any : Any))
-    @test_expr annotation_checks[2] == :((Int<:$(InterfaceDispatch.InterfaceKind) ? Any : Int))
-    @test_expr annotation_checks[3] == :((Vector{T}<:$(InterfaceDispatch.InterfaceKind) ? Any : Vector{T}))
+    @test_expr annotation_checks[1] == :((Any<:$(DuckDispatch.DuckType) ? Any : Any))
+    @test_expr annotation_checks[2] == :((Int<:$(DuckDispatch.DuckType) ? Any : Int))
+    @test_expr annotation_checks[3] == :((Vector{T}<:$(DuckDispatch.DuckType) ? Any : Vector{T}))
 end
 
 

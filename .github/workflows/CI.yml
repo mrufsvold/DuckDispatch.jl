@@ -71,6 +71,6 @@ jobs:
         shell: julia --project=docs --color=yes {0}
         run: |
           using Documenter: DocMeta, doctest
-          using InterfaceDispatch
-          DocMeta.setdocmeta!(InterfaceDispatch, :DocTestSetup, :(using InterfaceDispatch); recursive=true)
-          doctest(InterfaceDispatch)
+          using DuckDispatch
+          DocMeta.setdocmeta!(DuckDispatch, :DocTestSetup, :(using DuckDispatch); recursive=true)
+          doctest(DuckDispatch)

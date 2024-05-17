@@ -73,14 +73,14 @@ function _interface(interface_expr)
 end
 
 """
-just creates `struct NewInterfaceName <: InterfaceKind end`
+just creates `struct NewGuiseName <: DuckType end`
 """
 function create_main_struct_def(interface_expr)
     # todo: how to make this struct documentable?
     jl_struct = JLStruct(interface_expr)
     empty!(jl_struct.constructors)
     empty!(jl_struct.misc)
-    jl_struct.supertype = InterfaceKind
+    jl_struct.supertype = DuckType
     return codegen_ast(jl_struct)
 end
 
@@ -88,7 +88,7 @@ end
 creates this expr:
 
 ```
-function _requires_methods(::Type{T}) where T<:NewInterfaceName
+function _requires_methods(::Type{T}) where T<:NewGuiseName
     return tuple(
         RequiredMethod{method1}(Tuple{This}), 
         RequiredMethod{method2}(Tuple{This, Other, Types, This})
@@ -99,7 +99,7 @@ end
 function create_required_methods_func(required_statements::RequireStatements)
     method_list = required_statements.method_list
     req_method_exprs = map(create_required_method, method_list)
-    req_method_ref = esc(GlobalRef(InterfaceDispatch, :_required_methods))
+    req_method_ref = esc(GlobalRef(DuckDispatch, :_required_methods))
     return codegen_ast(JLFunction(;
         name = req_method_ref,
         args = [esc(:(::$Type{T}))],
@@ -150,20 +150,20 @@ end
 @testitem "interface macro" begin
     import Base: eltype
 
-    InterfaceDispatch.@interface struct HasEltype1{T}
-        function eltype(::InterfaceDispatch.This)::T where T end
+    DuckDispatch.@interface struct HasEltype1{T}
+        function eltype(::DuckDispatch.This)::T where T end
     end
-    function InterfaceDispatch.narrow(::Type{HasEltype1}, ::Type{D}) where D
+    function DuckDispatch.narrow(::Type{HasEltype1}, ::Type{D}) where D
         E = eltype(D)
         return HasEltype1{E}
     end
 
     # macro needs to:
-    # 1. create a struct that is a subtype of InterfaceKind
-    @test HasEltype1 <: InterfaceDispatch.InterfaceKind
+    # 1. create a struct that is a subtype of DuckType
+    @test HasEltype1 <: DuckDispatch.DuckType
     # 2. create a function that returns the required methods
-    @test InterfaceDispatch._required_methods(HasEltype1) == (
-        InterfaceDispatch.RequiredMethod{eltype}(Tuple{InterfaceDispatch.This}),
+    @test DuckDispatch._required_methods(HasEltype1) == (
+        DuckDispatch.RequiredMethod{eltype}(Tuple{DuckDispatch.This}),
     )
     # 3. create a new method for each required method
     @test length(methods(eltype, (HasEltype1,))) == 1
@@ -172,6 +172,6 @@ end
     function check_eltype(x)
         return eltype(x)
     end
-    @test check_eltype(InterfaceDispatch.wrap(HasEltype1, [1])) == Int
+    @test check_eltype(DuckDispatch.wrap(HasEltype1, [1])) == Int
 end
 

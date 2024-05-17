@@ -1,4 +1,4 @@
-name = "InterfaceDispatch"
+name = "DuckDispatch"
 uuid = "d0bffa9f-dd89-4e62-9d7d-6ff335571524"
 authors = ["Micah Rufsvold"]
 version = "0.0.1"

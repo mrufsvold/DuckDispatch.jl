@@ -39,8 +39,8 @@ end
 
 
 @testitem "replacing Tuple{Datatypes...}" begin
-    struct HasEltype{T} <: InterfaceDispatch.InterfaceKind end
-    input = Tuple{InterfaceDispatch.This,Any,InterfaceDispatch.This,Int}
-    output = InterfaceDispatch.replace_interface_with_t(input, HasEltype{Int})
+    struct HasEltype{T} <: DuckDispatch.DuckType end
+    input = Tuple{DuckDispatch.This,Any,DuckDispatch.This,Int}
+    output = DuckDispatch.replace_interface_with_t(input, HasEltype{Int})
     @test output == (HasEltype{Int},Any,HasEltype{Int},Int)
 end

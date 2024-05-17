@@ -1,11 +1,11 @@
-module InterfaceDispatch
+module DuckDispatch
 
 if VERSION >= v"1.11"
 public 
     @interface,
     @with_interface,
-    Interface,
-    InterfaceKind,
+    Guise,
+    DuckType,
     GenericWrap,
     This,
     narrow,
@@ -28,8 +28,8 @@ using ExproniconLite: JLFunction, JLStruct, is_function, xcall, codegen_ast
 
 include("TypeUtils.jl")
 include("MetaUtils.jl")
-include("Interfaces.jl")
-include("InterfaceMacro.jl")
+include("Guises.jl")
+include("GuiseMacro.jl")
 include("DispatchMacro.jl")
 
 end
