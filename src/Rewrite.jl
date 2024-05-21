@@ -164,18 +164,37 @@ struct Iterable{T} <: DuckType{
 }
 end
 
-function get_return_type(::Type{Iterable{T}}, ::B) where {T, B<:Behavior}
-    
+function get_return_type(::Type{Iterable{T}}, ::Type{Behavior{typeof(iterate), Tuple{This, Any}}}) where {T}
+    return T
 end
-function Base.iterate(g::Guise{Duck, <:Any}) where Duck
-    if implies(Duck, Behavior{Tuple{typeof(iterate), This}})
-        return iterate(unwrap(g))
+function Base.iterate(arg1::Guise{Duck, <:Any}) where Duck
+    if implies(Duck, Behavior{typeof(iterate), Tuple{This}})
+        return iterate(unwrap(arg1))
     end
 end
-function Base.iterate(g::Guise{Duck, <:Any}, state) where Duck
-    if implies(Duck, Behavior{Tuple{typeof(iterate), This, Any}})
-        return iterate(unwrap(g), state)
+function Base.iterate(arg1::Guise{Duck, <:Any}, arg2) where Duck
+    beh = Behavior{typeof(iterate), Tuple{This, Any}}
+
+    return dispatch_required_method(beh, Duck, arg1, arg2)
+end
+
+function dispatch_required_method(beh::Type{Behavior{F, S}}, ::Type{Duck}, args...) where {F, S, Duck}
+    target_duck_type = check_for_fitting_duck_type(Duck, beh)
+    if isnothing(target_duck_type)
+        error("No fitting iterate method found for $Duck")
     end
+    return F.instance(unwrap_where_this(S, args)...)::get_return_type(target_duck_type, beh)
+end
+
+function unwrap_where_this(sig::Type{<:Tuple}, args::Tuple)
+    return map(sig, args) do (T, arg)
+        T === This ? unwrap(arg) : arg
+    end
+end
+
+function check_for_fitting_duck_type(::Type{Duck}, ::Type{B})
+    # descend through Meets tracking the DuckType that created that meet
+    # if we find a fitting Behavior, return the DuckType that created that meet
 end
 
 function narrow(::Type{<:Iterable}, ::Type{T}) where T
