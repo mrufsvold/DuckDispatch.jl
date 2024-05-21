@@ -10,11 +10,27 @@ function get_specific_duck_type(sig, arg_types)
     error("No specific duck type found for $sig and $arg_types")
 end
 
-@generated function dispatch_behavior(beh::Type{Behavior{F, S}}, args...; kwargs...) where {F, S}
+"""
+    `dispatch_behavior(::Type{Behavior{F, S}}, args...; kwargs...) -> Any`
+Dispatches a behavior to the correct method based on the arguments passed in.
+It is called by the fallback definition of a behavior. It looks up the original
+DuckType that implemented the behavior and calls the method on that DuckType.
+"""
+@generated function dispatch_behavior(behavior::Type{Behavior{F, S}}, args...; kwargs...) where {F, S}
     DuckT = get_specific_duck_type(fieldtypes(S), args)
-    og_duck = find_original_duck_type(DuckT, beh)
+    og_duck = find_original_duck_type(DuckT, behavior)
     if isnothing(og_duck)
         error("No fitting iterate method found for $DuckT")
     end
-    return :($(F.instance)($rewrap_where_this($S, $og_duck, $args)...;$kwargs...)::$get_return_type($DuckT, $beh))
+    return :($(F.instance)($rewrap_where_this($S, $og_duck, $args)...;$kwargs...)::$get_return_type($DuckT, $behavior))
+end
+
+"""
+    `run_behavior(f, args...; kwargs...) -> Any`
+This function is called by the specific definition of a behavior created for a new
+DuckType.
+"""
+function run_behavior(f, args...; kwargs...)
+    unwrapped_args = unwrap.(args)
+    return f(unwrapped_args...; kwargs...)
 end
