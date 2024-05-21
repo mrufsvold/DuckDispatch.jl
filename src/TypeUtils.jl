@@ -93,12 +93,12 @@ end
 
 
 """
-    `quacks_like(Duck, Data) -> Bool`
-Checks if `Data` implements all required `Behavior`s of `Duck`.
+    `quacks_like(DuckT, Data) -> Bool`
+Checks if `Data` implements all required `Behavior`s of `DuckT`.
 """
-@generated function quacks_like(::Type{Duck}, ::Type{Data}) where {Duck<:DuckType, Data}
+@generated function quacks_like(::Type{DuckT}, ::Type{Data}) where {DuckT<:DuckType, Data}
     type_checker = TypeChecker{Data}(Data)
-    behavior_list = all_behaviors_of(Duck)
+    behavior_list = all_behaviors_of(DuckT)
     check_quotes = Expr[
         :($type_checker($b) || return false)
         for b in behavior_list
@@ -107,11 +107,11 @@ Checks if `Data` implements all required `Behavior`s of `Duck`.
 end
 
 """
-    `wrap(::Type{Duck}, data::T) -> Guise{Duck, T}`
-Wraps an object of type `T` in a `Guise` that implements the `DuckType` `Duck`.
+    `wrap(::Type{DuckT}, data::T) -> Guise{DuckT, T}`
+Wraps an object of type `T` in a `Guise` that implements the `DuckType` `DuckT`.
 """
-function wrap(::Type{Duck}, data::T) where {Duck<:DuckType, T}
-    NarrowDuckType = narrow(Duck, T)::Type{<:Duck}
+function wrap(::Type{DuckT}, data::T) where {DuckT<:DuckType, T}
+    NarrowDuckType = narrow(DuckT, T)::Type{<:DuckT}
     quacks_like(NarrowDuckType, T) && return Guise{NarrowDuckType,T}(data)
     error("Type $T does not implement the methods required by $NarrowDuckType")
 end
