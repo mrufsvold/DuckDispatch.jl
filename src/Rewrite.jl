@@ -48,6 +48,17 @@ end
     return :($u)
 end
 
+function find_original_duck_type(::Type{D}, ::Type{B}) where {D,B}
+    these_behaviors = tuple_collect(get_top_level_behaviors(D))
+    if any(implies(b, B) for b in these_behaviors)
+        return D
+    end
+    for dt in tuple_collect(get_duck_types(D))
+        child_res = find_original_duck_type(dt, B)::Union{Nothing, DataType}
+        !isnothing(child_res) && return child_res
+    end
+end
+
 
 struct Guise{DuckT, Data}
     data::Data
@@ -160,7 +171,7 @@ struct IsContainer{T} <: DuckType{
     },
     Union{
         Iterable{T}
-}
+    }
 }
 end
 
@@ -171,5 +182,6 @@ using Test
     @test quacks_like(IsContainer{Any}, Vector{Int})
     @test wrap(IsContainer{Int}, [1,2,3]) isa Guise{IsContainer{Int}, Vector{Int}}
     @test rewrap(wrap(IsContainer{Int}, [1,2,3]), Iterable) isa Guise{Iterable{Int}, Vector{Int}}
+    @test find_original_duck_type(IsContainer{Int}, Behavior{typeof(iterate), Tuple{This, Any}}) <: Iterable
 end
 end
