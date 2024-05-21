@@ -1,16 +1,15 @@
 module DuckDispatch
 
-# if VERSION >= v"1.11"
-# public 
-#     Guise,
-#     DuckType,
-#     GenericWrap,
-#     This,
-#     narrow,
-#     wrap,
-#     unwrap,
-#     rewrap
-# end
+if VERSION >= v"1.11"
+public 
+    Guise,
+    DuckType,
+    This,
+    narrow,
+    wrap,
+    unwrap,
+    rewrap
+end
 
 @static if false
     macro test end
