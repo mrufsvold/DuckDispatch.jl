@@ -10,31 +10,42 @@ struct Behavior{F, Sig<:Tuple} end
 get_signature(::Type{Behavior{F,S}}) where {F,S} = S
 get_func_type(::Type{Behavior{F,S}}) where {F,S} = F
 
-abstract type DuckType{Behaviors} end
+abstract type DuckType{Behaviors, DuckTypes} end
 
 narrow(::Type{T}, ::Any) where {T <: DuckType} = T
 
-function get_behaviors(::Type{D}) where D<:DuckType
+function get_top_level_behaviors(::Type{D}) where D<:DuckType
     sup = supertype(D)
     sup === Any && return extract_behaviors(D)
-    return get_behaviors(sup)
+    return get_top_level_behaviors(sup)
 end
-extract_behaviors(::Type{DuckType{B}}) where {B} = B
+extract_behaviors(::Type{DuckType{B,D}})  where {B,D} = B
+function get_duck_types(::Type{D}) where D<:DuckType
+    sup = supertype(D)
+    sup === Any && return extract_duck_types(D)
+    return get_duck_types(sup)
+end
+extract_duck_types(::Type{DuckType{B,D}}) where {B,D} = D
 
-function behaviors_of(::Type{D}) where D 
-    D <: Behavior && (D,)
-    these_behaviors = tuple_collect(get_behaviors(D))
-    return mapreduce(behaviors_of, append!!, these_behaviors)
-end
-function behaviors_union(::Type{D}) where D 
-    behavior_list = behaviors_of(D)
-    return Union{behavior_list...}
+function all_behaviors_of(::Type{D}) where D <: DuckType
+    return tuple_collect(behaviors_union(D))
 end
 
 @generated function tuple_collect(::Type{U}) where U
+    U === Union{} && return ()
     types = tuple(Base.uniontypes(U)...)
     call = xcall(tuple, types...)
     return codegen_ast(call)
+end
+function _behaviors_union(::Type{D}) where D 
+    this_behavior_union = get_top_level_behaviors(D)
+    these_duck_types = tuple_collect(get_duck_types(D))
+    length(these_duck_types) == 0 && return this_behavior_union
+    return Union{this_behavior_union, _behaviors_union(these_duck_types...)}
+end
+@generated function behaviors_union(::Type{D}) where D 
+    u = _behaviors_union(D)
+    return :($u)
 end
 
 
@@ -57,8 +68,8 @@ function implies(::Type{D1}, ::Type{D2}) where {D1<:DuckType, D2<:DuckType}
     behaviors_union(D2) <: behaviors_union(D1) && return true
     
     # If that fails, we need to check the behaviors of D2 one by one
-    d1_behaviors = behaviors_of(D1)
-    for b2 in behaviors_of(D2)
+    d1_behaviors = all_behaviors_of(D1)
+    for b2 in all_behaviors_of(D2)
         any(implies(b1, b2) for b1 in d1_behaviors) || return false
     end
     return true
@@ -80,7 +91,7 @@ end
 
 @generated function quacks_like(::Type{Duck}, ::Type{Data}) where {Duck<:DuckType, Data}
     type_checker = TypeChecker{Data}(Data)
-    behavior_list = behaviors_of(Duck)
+    behavior_list = all_behaviors_of(Duck)
     check_quotes = Expr[
         :($type_checker($b) || return false)
         for b in behavior_list
@@ -97,21 +108,29 @@ unwrap(x::Guise) = x.data
 rewrap(x::Guise{I1, <:Any}, ::Type{I2}) where {I1, I2<:DuckType} = wrap(I2, unwrap(x))
 
 
+function unwrap_where_this(sig::Type{<:Tuple}, args::Tuple)
+    return map(sig, args) do (T, arg)
+        T === This ? unwrap(arg) : arg
+    end
+end
+
 @generated function dispatch_required_method(beh::Type{Behavior{F, S}}, args...; kwargs...) where {F, S}
     DuckT = some_function_to_get_the_duck_type(beh, args)
     if isnothing(target_duck_type)
         error("No fitting iterate method found for $Duck")
     end
     ret_type = get_return_type(DuckT, beh)
-    return ($(F.instance)(unwrap_where_this($S, $args)...;$kwargs...)::$ret_type)
+    return :($(F.instance)(unwrap_where_this($S, $args)...;$kwargs...)::$ret_type)
 end
 
-# an example
+######## an example #########
+#############################
 struct Iterable{T} <: DuckType{
     Union{
         Behavior{typeof(iterate), Tuple{This, Any}},
         Behavior{typeof(iterate), Tuple{This}}
-    }
+    },
+    Union{}
 }
 end
 
@@ -129,19 +148,6 @@ function Base.iterate(arg1::Guise{Duck, <:Any}, arg2) where Duck
     return dispatch_required_method(beh, Duck, arg1, arg2)
 end
 
-
-
-function unwrap_where_this(sig::Type{<:Tuple}, args::Tuple)
-    return map(sig, args) do (T, arg)
-        T === This ? unwrap(arg) : arg
-    end
-end
-
-function check_for_fitting_duck_type(::Type{Duck}, ::Type{B}) where {Duck, B}
-    # descend through Meets tracking the DuckType that created that meet
-    # if we find a fitting Behavior, return the DuckType that created that meet
-end
-
 function narrow(::Type{<:Iterable}, ::Type{T}) where T
     E = eltype(T)
     return Iterable{E}
@@ -150,7 +156,9 @@ end
 struct IsContainer{T} <: DuckType{
     Union{
         Behavior{typeof(length), Tuple{This}},
-        Behavior{typeof(getindex), Tuple{This, Int}},
+        Behavior{typeof(getindex), Tuple{This, Int}}
+    },
+    Union{
         Iterable{T}
 }
 }
