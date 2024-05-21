@@ -147,31 +147,31 @@ function create_new_dispatch(rf::RequiredFunctionality)
 end
 
 
-@testitem "interface macro" begin
-    import Base: eltype
+# @testitem "interface macro" begin
+#     import Base: eltype
 
-    DuckDispatch.@interface struct HasEltype1{T}
-        function eltype(::DuckDispatch.This)::T where T end
-    end
-    function DuckDispatch.narrow(::Type{HasEltype1}, ::Type{D}) where D
-        E = eltype(D)
-        return HasEltype1{E}
-    end
+#     DuckDispatch.@interface struct HasEltype1{T}
+#         function eltype(::DuckDispatch.This)::T where T end
+#     end
+#     function DuckDispatch.narrow(::Type{HasEltype1}, ::Type{D}) where D
+#         E = eltype(D)
+#         return HasEltype1{E}
+#     end
 
-    # macro needs to:
-    # 1. create a struct that is a subtype of DuckType
-    @test HasEltype1 <: DuckDispatch.DuckType
-    # 2. create a function that returns the required methods
-    @test DuckDispatch._required_methods(HasEltype1) == (
-        DuckDispatch.RequiredMethod{eltype}(Tuple{DuckDispatch.This}),
-    )
-    # 3. create a new method for each required method
-    @test length(methods(eltype, (HasEltype1,))) == 1
+#     # macro needs to:
+#     # 1. create a struct that is a subtype of DuckType
+#     @test HasEltype1 <: DuckDispatch.DuckType
+#     # 2. create a function that returns the required methods
+#     @test DuckDispatch._required_methods(HasEltype1) == (
+#         DuckDispatch.RequiredMethod{eltype}(Tuple{DuckDispatch.This}),
+#     )
+#     # 3. create a new method for each required method
+#     @test length(methods(eltype, (HasEltype1,))) == 1
 
-    # 4. for each required interface, add more new methods with unwrap
-    function check_eltype(x)
-        return eltype(x)
-    end
-    @test check_eltype(DuckDispatch.wrap(HasEltype1, [1])) == Int
-end
+#     # 4. for each required interface, add more new methods with unwrap
+#     function check_eltype(x)
+#         return eltype(x)
+#     end
+#     @test check_eltype(DuckDispatch.wrap(HasEltype1, [1])) == Int
+# end
 

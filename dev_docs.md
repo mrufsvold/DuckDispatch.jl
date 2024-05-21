@@ -3,8 +3,8 @@
 - Base.uniontypes
 
 # TODO:
-- Refactor DuckTypes to have a list of Behaviors and a List of DuckTypes
-- Write the function that finds the original DuckType which defined the behavior
-- Document basics
-- Break into files
-- Redo macros
+- [X] Refactor DuckTypes to have a list of Behaviors and a List of DuckTypes 
+- [X] Write the function that finds the original DuckType which defined the behavior
+- [X] Document basics
+- [ ] Break into files
+- [ ] Redo macros

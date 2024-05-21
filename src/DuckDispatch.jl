@@ -1,35 +1,80 @@
 module DuckDispatch
 
-if VERSION >= v"1.11"
-public 
-    @interface,
-    @with_interface,
-    Guise,
-    DuckType,
-    GenericWrap,
-    This,
-    narrow,
-    Meet,
-    wrap,
-    unwrap,
-    rewrap
-end
+# if VERSION >= v"1.11"
+# public 
+#     Guise,
+#     DuckType,
+#     GenericWrap,
+#     This,
+#     narrow,
+#     wrap,
+#     unwrap,
+#     rewrap
+# end
 
 @static if false
     macro test end
     macro test_throws end
 end
 
-using BangBang: append!!, push!!
-using Base: tail
+using BangBang: append!!#, push!!
+# using Base: tail
 using TestItems: @testitem
-using SumTypes: @sum_type, @cases
+# using SumTypes: @sum_type, @cases
 using ExproniconLite: JLFunction, JLStruct, is_function, xcall, codegen_ast
 
+include("Utils.jl")
+include("Types.jl")
 include("TypeUtils.jl")
-include("MetaUtils.jl")
-include("Guises.jl")
-include("GuiseMacro.jl")
-include("DispatchMacro.jl")
+include("BehaviorDispatch.jl")
+
+@testitem "Test Basics" begin
+    struct Iterable{T} <: DuckDispatch.DuckType{
+        Union{
+            DuckDispatch.Behavior{typeof(iterate), Tuple{DuckDispatch.This, Any}},
+            DuckDispatch.Behavior{typeof(iterate), Tuple{DuckDispatch.This}}
+        },
+        Union{}
+    }
+    end
+    
+    function get_return_type(::Type{Iterable{T}}, ::Type{DuckDispatch.Behavior{typeof(iterate), Tuple{DuckDispatch.This, Any}}}) where {T}
+        return T
+    end
+    function Base.iterate(arg1::DuckDispatch.Guise{Duck, <:Any}) where Duck
+        if DuckDispatch.implies(Duck, DuckDispatch.Behavior{typeof(iterate), Tuple{DuckDispatch.This}})
+            return iterateDuckDispatch.(unwrap(arg1))
+        end
+    end
+    function Base.iterate(arg1::DuckDispatch.Guise{Duck, <:Any}, arg2) where Duck
+        beh = DuckDispatch.Behavior{typeof(iterate), Tuple{DuckDispatch.This, Any}}
+    
+        return dispatch_required_method(beh, Duck, arg1, arg2)
+    end
+    
+    function DuckDispatch.narrow(::Type{<:Iterable}, ::Type{T}) where T
+        E = eltype(T)
+        return Iterable{E}
+    end
+    
+    struct IsContainer{T} <: DuckDispatch.DuckType{
+        Union{
+            DuckDispatch.Behavior{typeof(length), Tuple{DuckDispatch.This}},
+            DuckDispatch.Behavior{typeof(getindex), Tuple{DuckDispatch.This, Int}}
+        },
+        Union{
+            Iterable{T}
+        }
+    }
+    end
+    
+    @test DuckDispatch.implies(IsContainer{Any}, Iterable{Any})
+    @test !DuckDispatch.quacks_like(IsContainer{Any}, IOBuffer)
+    @test DuckDispatch.quacks_like(IsContainer{Any}, Vector{Int})
+    @test DuckDispatch.wrap(IsContainer{Int}, [1,2,3]) isa DuckDispatch.Guise{IsContainer{Int}, Vector{Int}}
+    @test DuckDispatch.rewrap(DuckDispatch.wrap(IsContainer{Int}, [1,2,3]), Iterable) isa DuckDispatch.Guise{Iterable{Int}, Vector{Int}}
+    @test DuckDispatch.find_original_duck_type(IsContainer{Int}, DuckDispatch.Behavior{typeof(iterate), Tuple{DuckDispatch.This, Any}}) <: Iterable
+end
+
 
 end

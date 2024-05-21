@@ -127,31 +127,31 @@ function run(f, ::Type{I}, args)
     return f(unwrapped_args...)
 end
 
-@testitem "Basic interface wrapping test" begin
-    struct HasEltype{T} <: DuckDispatch.DuckType end
-    DuckDispatch._required_methods(::Type{HasEltype{T}}) where {T} = (
-        DuckDispatch.RequiredMethod{eltype}(Tuple{DuckDispatch.This}),
-        )
-    struct IsIterable{T} <: DuckDispatch.DuckType end
-    DuckDispatch._required_methods(::Type{IsIterable{T}}) where {T} = (
-        DuckDispatch.RequiredMethod{iterate}(Tuple{DuckDispatch.This}),
-        DuckDispatch.RequiredMethod{iterate}(Tuple{DuckDispatch.This, Any}),
-        )
+# @testitem "Basic interface wrapping test" begin
+#     struct HasEltype{T} <: DuckDispatch.DuckType end
+#     DuckDispatch._required_methods(::Type{HasEltype{T}}) where {T} = (
+#         DuckDispatch.RequiredMethod{eltype}(Tuple{DuckDispatch.This}),
+#         )
+#     struct IsIterable{T} <: DuckDispatch.DuckType end
+#     DuckDispatch._required_methods(::Type{IsIterable{T}}) where {T} = (
+#         DuckDispatch.RequiredMethod{iterate}(Tuple{DuckDispatch.This}),
+#         DuckDispatch.RequiredMethod{iterate}(Tuple{DuckDispatch.This, Any}),
+#         )
     
-    DuckDispatch.required_interfaces(::Type{IsIterable{T}}) where {T} = (HasEltype{T},)
+#     DuckDispatch.required_interfaces(::Type{IsIterable{T}}) where {T} = (HasEltype{T},)
     
-    # Here we check that we correctly fail when trying to wrap a type which does not adhere to the interface.
-    @test !DuckDispatch.is_method_implemented(
-        DuckDispatch.RequiredMethod{iterate}(Tuple{DuckDispatch.This}), 
-        Nothing
-        )
-    @test_throws ErrorException DuckDispatch.wrap(IsIterable{Int}, nothing)
+#     # Here we check that we correctly fail when trying to wrap a type which does not adhere to the interface.
+#     @test !DuckDispatch.is_method_implemented(
+#         DuckDispatch.RequiredMethod{iterate}(Tuple{DuckDispatch.This}), 
+#         Nothing
+#         )
+#     @test_throws ErrorException DuckDispatch.wrap(IsIterable{Int}, nothing)
     
-    interface = DuckDispatch.wrap(HasEltype{Int}, [1, 2])
-    @test interface isa DuckDispatch.Guise{HasEltype{Int},Vector{Int}}
-    @test DuckDispatch.unwrap(interface) == ([1, 2])
-    @test DuckDispatch.rewrap(interface, IsIterable{Int}) isa DuckDispatch.Guise{IsIterable{Int},Vector{Int}}
-end
+#     interface = DuckDispatch.wrap(HasEltype{Int}, [1, 2])
+#     @test interface isa DuckDispatch.Guise{HasEltype{Int},Vector{Int}}
+#     @test DuckDispatch.unwrap(interface) == ([1, 2])
+#     @test DuckDispatch.rewrap(interface, IsIterable{Int}) isa DuckDispatch.Guise{IsIterable{Int},Vector{Int}}
+# end
 
 
 

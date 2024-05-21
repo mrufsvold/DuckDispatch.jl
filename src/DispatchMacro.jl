@@ -128,81 +128,81 @@ function add_interface_wrap(target_type, arg)
     return arg
 end
 
-@testitem "Dispatch AST Helpers" begin
-    using ExproniconLite: @test_expr, JLFunction
-    using SumTypes: @cases
+# @testitem "Dispatch AST Helpers" begin
+#     using ExproniconLite: @test_expr, JLFunction
+#     using SumTypes: @cases
 
 
-    jlf = JLFunction(:(f(a::Any, b::Int, c::Vector{T}) where T = "hi!"))
-    DuckDispatch.add_dispatch_body!(jlf)
-    @test_expr jlf.body == :($(DuckDispatch.dispatch)(f, $(DuckDispatch.IsDuckDispatch)(), a, b, c))
-end
+#     jlf = JLFunction(:(f(a::Any, b::Int, c::Vector{T}) where T = "hi!"))
+#     DuckDispatch.add_dispatch_body!(jlf)
+#     @test_expr jlf.body == :($(DuckDispatch.dispatch)(f, $(DuckDispatch.IsDuckDispatch)(), a, b, c))
+# end
 
-@testitem "Dispatch on Guise without macro" begin
-    import Base: iterate, length, eltype
+# @testitem "Dispatch on Guise without macro" begin
+#     import Base: iterate, length, eltype
 
-    struct IsIterable{T} <: DuckDispatch.DuckType end
-    DuckDispatch._required_methods(::Type{T}) where {T<:IsIterable} = (
-        DuckDispatch.RequiredMethod{eltype}(Tuple{DuckDispatch.This}),
-        DuckDispatch.RequiredMethod{iterate}(Tuple{DuckDispatch.This}),
-        DuckDispatch.RequiredMethod{iterate}(Tuple{DuckDispatch.This, Any})
-    )
+#     struct IsIterable{T} <: DuckDispatch.DuckType end
+#     DuckDispatch._required_methods(::Type{T}) where {T<:IsIterable} = (
+#         DuckDispatch.RequiredMethod{eltype}(Tuple{DuckDispatch.This}),
+#         DuckDispatch.RequiredMethod{iterate}(Tuple{DuckDispatch.This}),
+#         DuckDispatch.RequiredMethod{iterate}(Tuple{DuckDispatch.This, Any})
+#     )
     
-    function iterate(arg1::DuckDispatch.Guise{IsIterable{T}, <:Any}) where T
-        return iterate(DuckDispatch.unwrap(arg1))::Union{Nothing, Tuple{<:T, <:Any}}
-    end
-    function iterate(arg1::DuckDispatch.Guise{IsIterable{T}, <:Any}, arg2::Any) where T
-        return iterate(DuckDispatch.unwrap(arg1), arg2)::Union{Nothing, Tuple{<:T, <:Any}}
-    end
-    function eltype(x::DuckDispatch.Guise{IsIterable{T}, <:Any}) where T
-        return eltype(DuckDispatch.unwrap(x))::Type{T}
-    end
+#     function iterate(arg1::DuckDispatch.Guise{IsIterable{T}, <:Any}) where T
+#         return iterate(DuckDispatch.unwrap(arg1))::Union{Nothing, Tuple{<:T, <:Any}}
+#     end
+#     function iterate(arg1::DuckDispatch.Guise{IsIterable{T}, <:Any}, arg2::Any) where T
+#         return iterate(DuckDispatch.unwrap(arg1), arg2)::Union{Nothing, Tuple{<:T, <:Any}}
+#     end
+#     function eltype(x::DuckDispatch.Guise{IsIterable{T}, <:Any}) where T
+#         return eltype(DuckDispatch.unwrap(x))::Type{T}
+#     end
 
-    struct IsSizedIterator{T} <: DuckDispatch.DuckType end
-    DuckDispatch._required_methods(::Type{IsSizedIterator{T}}) where {T} = (
-        DuckDispatch.RequiredMethod{length}(Tuple{DuckDispatch.This}),
+#     struct IsSizedIterator{T} <: DuckDispatch.DuckType end
+#     DuckDispatch._required_methods(::Type{IsSizedIterator{T}}) where {T} = (
+#         DuckDispatch.RequiredMethod{length}(Tuple{DuckDispatch.This}),
 
-    )
-    function length(x::DuckDispatch.Guise{IsSizedIterator{T}, <:Any}) where T
-        return length(DuckDispatch.unwrap(x))::Int
-    end
+#     )
+#     function length(x::DuckDispatch.Guise{IsSizedIterator{T}, <:Any}) where T
+#         return length(DuckDispatch.unwrap(x))::Int
+#     end
 
-    DuckDispatch.required_interfaces(::Type{IsSizedIterator{T}}) where {T} = (IsIterable{T},)
-    function iterate(arg1::DuckDispatch.Guise{IsSizedIterator{T}, <:Any}) where T
-        return iterate(DuckDispatch.rewrap(arg1, IsIterable{T}))::Union{Nothing, Tuple{<:T, <:Any}}
-    end
-    function iterate(arg1::DuckDispatch.Guise{IsSizedIterator{T}, <:Any}, arg2::Any) where T
-        return iterate(DuckDispatch.rewrap(arg1, IsIterable{T}), arg2)::Union{Nothing, Tuple{<:T, <:Any}}
-    end
-    function eltype(x::DuckDispatch.Guise{IsSizedIterator{T}, <:Any}) where T
-        return eltype(DuckDispatch.rewrap(x, IsIterable{T}))::Type{T}
-    end
+#     DuckDispatch.required_interfaces(::Type{IsSizedIterator{T}}) where {T} = (IsIterable{T},)
+#     function iterate(arg1::DuckDispatch.Guise{IsSizedIterator{T}, <:Any}) where T
+#         return iterate(DuckDispatch.rewrap(arg1, IsIterable{T}))::Union{Nothing, Tuple{<:T, <:Any}}
+#     end
+#     function iterate(arg1::DuckDispatch.Guise{IsSizedIterator{T}, <:Any}, arg2::Any) where T
+#         return iterate(DuckDispatch.rewrap(arg1, IsIterable{T}), arg2)::Union{Nothing, Tuple{<:T, <:Any}}
+#     end
+#     function eltype(x::DuckDispatch.Guise{IsSizedIterator{T}, <:Any}) where T
+#         return eltype(DuckDispatch.rewrap(x, IsIterable{T}))::Type{T}
+#     end
     
-    # This is the stuff that needs to be created by the with_interface macro
-    function collect_ints(
-            ::DuckDispatch.IsDuckDispatch, # insert the DuckDispatch
-            x::DuckDispatch.Guise{IsSizedIterator{Int}, <:Any} # make sure DuckTypes are wrapped
-            )
-        return collect(x)
-    end
+#     # This is the stuff that needs to be created by the with_interface macro
+#     function collect_ints(
+#             ::DuckDispatch.IsDuckDispatch, # insert the DuckDispatch
+#             x::DuckDispatch.Guise{IsSizedIterator{Int}, <:Any} # make sure DuckTypes are wrapped
+#             )
+#         return collect(x)
+#     end
 
-    function collect_ints(x::Any)
-        return DuckDispatch.dispatch(
-            collect_ints, # pass dispatch the function name
-            DuckDispatch.IsDuckDispatch(), # insert an instance of DuckDispatch
-            x # pass all args
-            )
-    end
+#     function collect_ints(x::Any)
+#         return DuckDispatch.dispatch(
+#             collect_ints, # pass dispatch the function name
+#             DuckDispatch.IsDuckDispatch(), # insert an instance of DuckDispatch
+#             x # pass all args
+#             )
+#     end
 
-    f_sigs = map(DuckDispatch.extract_arg_types, methods(collect_ints).ms)
-    @test length(f_sigs) == 2
-    @test DuckDispatch.types_can_be_wrapped(f_sigs[2], (DuckDispatch.IsDuckDispatch, Tuple{Int,Int}))
-    @test collect_ints((1,2))::Vector{Int} == [1,2]
+#     f_sigs = map(DuckDispatch.extract_arg_types, methods(collect_ints).ms)
+#     @test length(f_sigs) == 2
+#     @test DuckDispatch.types_can_be_wrapped(f_sigs[2], (DuckDispatch.IsDuckDispatch, Tuple{Int,Int}))
+#     @test collect_ints((1,2))::Vector{Int} == [1,2]
 
-    DuckDispatch.@with_interface function collect_strings(x::IsSizedIterator{String})
-        return collect(x)
-    end
+#     DuckDispatch.@with_interface function collect_strings(x::IsSizedIterator{String})
+#         return collect(x)
+#     end
 
-    @test collect_strings(("a","b"))::Vector{String} == ["a","b"]
-end
+#     @test collect_strings(("a","b"))::Vector{String} == ["a","b"]
+# end
 

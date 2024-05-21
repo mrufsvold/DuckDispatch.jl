@@ -154,32 +154,32 @@ function is_This(type_ann)
     return false
 end
 
-@testitem "Meta Utils" begin
-    using ExproniconLite: JLFunction, @test_expr
-    using SumTypes
-    jlf = JLFunction(:(f(a, b::Int, c::Vector{Int}) = nothing))
-    func_args = DuckDispatch.FuncArg.(jlf.args)
-    function unpack(func_arg)
-        variant, content = @cases func_arg.type_annotation begin
-            none    => (:none, nothing)
-            symbol(x)  => (:symbol, x) 
-            expr(x)    => (:expr, x)
-        end
-        return (func_arg.name, variant, content)
-    end
-    @test unpack.(func_args) == [
-        (:a, :none, nothing),
-        (:b, :symbol, :Int),
-        (:c, :expr, :(Vector{Int}))
-    ]
+# @testitem "Meta Utils" begin
+#     using ExproniconLite: JLFunction, @test_expr
+#     using SumTypes
+#     jlf = JLFunction(:(f(a, b::Int, c::Vector{Int}) = nothing))
+#     func_args = DuckDispatch.FuncArg.(jlf.args)
+#     function unpack(func_arg)
+#         variant, content = @cases func_arg.type_annotation begin
+#             none    => (:none, nothing)
+#             symbol(x)  => (:symbol, x) 
+#             expr(x)    => (:expr, x)
+#         end
+#         return (func_arg.name, variant, content)
+#     end
+#     @test unpack.(func_args) == [
+#         (:a, :none, nothing),
+#         (:b, :symbol, :Int),
+#         (:c, :expr, :(Vector{Int}))
+#     ]
 
-    jlf = JLFunction(:(f(a, b::Int, c::Vector{T}) where T = "hi!"))
-    func_args = DuckDispatch.FuncArg.(jlf.args)
-    annotation_checks = DuckDispatch.arg_with_interface_type_check.(func_args)
+#     jlf = JLFunction(:(f(a, b::Int, c::Vector{T}) where T = "hi!"))
+#     func_args = DuckDispatch.FuncArg.(jlf.args)
+#     annotation_checks = DuckDispatch.arg_with_interface_type_check.(func_args)
 
-    @test_expr annotation_checks[1] == :((Any<:$(DuckDispatch.DuckType) ? Any : Any))
-    @test_expr annotation_checks[2] == :((Int<:$(DuckDispatch.DuckType) ? Any : Int))
-    @test_expr annotation_checks[3] == :((Vector{T}<:$(DuckDispatch.DuckType) ? Any : Vector{T}))
-end
+#     @test_expr annotation_checks[1] == :((Any<:$(DuckDispatch.DuckType) ? Any : Any))
+#     @test_expr annotation_checks[2] == :((Int<:$(DuckDispatch.DuckType) ? Any : Int))
+#     @test_expr annotation_checks[3] == :((Vector{T}<:$(DuckDispatch.DuckType) ? Any : Vector{T}))
+# end
 
 
