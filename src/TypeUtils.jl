@@ -136,3 +136,9 @@ function unwrap_where_this(sig::Type{<:Tuple}, args::Tuple)
         T === This ? unwrap(arg) : arg
     end
 end
+
+function rewrap_where_this(sig::Type{<:Tuple}, ::Type{D}, args::Tuple) where {D<:DuckType}
+    return map(sig, args) do (T, arg)
+        T === This ? rewrap(arg, b) : arg
+    end
+end
