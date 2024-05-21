@@ -112,7 +112,7 @@ Wraps an object of type `T` in a `Guise` that implements the `DuckType` `DuckT`.
 """
 function wrap(::Type{DuckT}, data::T) where {DuckT<:DuckType, T}
     NarrowDuckType = narrow(DuckT, T)::Type{<:DuckT}
-    quacks_like(NarrowDuckType, T) && return Guise{NarrowDuckType,T}(data)
+    quacks_like(NarrowDuckType, T) && return Guise{NarrowDuckType,T}(NarrowDuckType, data)
     error("Type $T does not implement the methods required by $NarrowDuckType")
 end
 
@@ -121,6 +121,8 @@ end
 Returns the data wrapped in a `Guise`.
 """
 unwrap(x::Guise) = x.data
+unwrap(x) = x
+
 """
     `rewrap(g::Guise{Duck1, <:Any}, ::Type{Duck2}) -> Guise{Duck2, <:Any}`
 Rewraps a `Guise` to implement a different `DuckType`.
@@ -138,7 +140,7 @@ function unwrap_where_this(sig::Type{<:Tuple}, args::Tuple)
 end
 
 function rewrap_where_this(sig::Type{<:Tuple}, ::Type{D}, args::Tuple) where {D<:DuckType}
-    return map(sig, args) do (T, arg)
-        T === This ? rewrap(arg, b) : arg
+    return map(fieldtypes(sig), args) do T, arg
+        T === This ? rewrap(arg, D) : arg
     end
 end

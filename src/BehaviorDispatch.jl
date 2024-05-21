@@ -1,3 +1,7 @@
+function get_return_type(::Type{<:DuckType}, ::Behavior)
+    return Any
+end
+
 function get_specific_duck_type(sig, arg_types)
     this_arg_types = Union{}
     for i in eachindex(sig)
@@ -16,13 +20,13 @@ Dispatches a behavior to the correct method based on the arguments passed in.
 It is called by the fallback definition of a behavior. It looks up the original
 DuckType that implemented the behavior and calls the method on that DuckType.
 """
-@generated function dispatch_behavior(behavior::Type{Behavior{F, S}}, args...; kwargs...) where {F, S}
+function dispatch_behavior(behavior::Type{Behavior{F, S}}, args...; kwargs...) where {F, S}
     DuckT = get_specific_duck_type(fieldtypes(S), args)
-    og_duck = find_original_duck_type(DuckT, behavior)
-    if isnothing(og_duck)
+    OGDuckT = find_original_duck_type(DuckT, behavior)
+    if isnothing(OGDuckT)
         error("No fitting iterate method found for $DuckT")
     end
-    return :($(F.instance)($rewrap_where_this($S, $og_duck, $args)...;$kwargs...)::$get_return_type($DuckT, $behavior))
+    return F.instance(rewrap_where_this(S, OGDuckT, args)...; kwargs...)::get_return_type(OGDuckT, behavior)
 end
 
 """

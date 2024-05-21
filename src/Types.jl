@@ -40,13 +40,15 @@ narrow(::Type{T}, ::Any) where {T <: DuckType} = T
 `Guise{DuckT, Data}` is a type that wraps an object of type `Data` and implements the `DuckType` `DuckT`.
 """
 struct Guise{DuckT, Data}
+    duck_type::Type{DuckT}
     data::Data
 end
 """
     `get_duck_type(::Type{Guise{D, <:Any}}) -> Type{D}`
 Returns the `DuckType` that a `Guise` implements.
 """
-get_duck_type(::Type{Guise{D, <:Any}}) where {D} = D
+get_duck_type(::Type{Guise{D, T}}) where {D, T} = D
+get_duck_type(::G) where G <: Guise = get_duck_type(G)
 
 """
 `TypeChecker{Data}` is a callable struct which checks if there is a method implemented for
