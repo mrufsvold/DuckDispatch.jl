@@ -41,15 +41,15 @@ include("BehaviorDispatch.jl")
     function get_return_type(::Type{Iterable{T}}, ::Type{DuckDispatch.Behavior{typeof(iterate), Tuple{DuckDispatch.This, Any}}}) where {T}
         return T
     end
-    function Base.iterate(arg1::DuckDispatch.Guise{Duck, <:Any}) where Duck
-        if DuckDispatch.implies(Duck, DuckDispatch.Behavior{typeof(iterate), Tuple{DuckDispatch.This}})
+    function Base.iterate(arg1::DuckDispatch.Guise{DuckT, <:Any}) where DuckT
+        if DuckDispatch.implies(DuckT, DuckDispatch.Behavior{typeof(iterate), Tuple{DuckDispatch.This}})
             return iterateDuckDispatch.(unwrap(arg1))
         end
     end
-    function Base.iterate(arg1::DuckDispatch.Guise{Duck, <:Any}, arg2) where Duck
+    function Base.iterate(arg1::DuckDispatch.Guise{DuckT, <:Any}, arg2) where DuckT
         beh = DuckDispatch.Behavior{typeof(iterate), Tuple{DuckDispatch.This, Any}}
     
-        return dispatch_required_method(beh, Duck, arg1, arg2)
+        return dispatch_required_method(beh, DuckT, arg1, arg2)
     end
     
     function DuckDispatch.narrow(::Type{<:Iterable}, ::Type{T}) where T
