@@ -1,9 +1,10 @@
 module R
 using JET
+using ExproniconLite
+using BangBang: append!!
 
 struct This end
 struct Behavior{F, Sig<:Tuple} end
-const NoBehavior = Behavior{Tuple{}}
 
 function get_signature(::Type{Behavior{F,S}}) where {F,S}
     return S
@@ -13,37 +14,43 @@ function get_func_type(::Type{Behavior{F,S}}) where {F,S}
     return F
 end
 
+abstract type DuckType{Behaviors} end
 
-struct Meet{
-    Head, #<:Union{Meet, Behavior}, 
-    Tail  #<:Union{Meet, Behavior}
-    # TODO: Meet could hold a reference to the DuckType that it is a part of
-    # that would let us find the correct rewrap to dispatch out to the original 
-    # DuckType dispatch
-    }
+function get_behaviors(::Type{D}) where D<:DuckType
+    sup = supertype(D)
+    if sup === Any
+        return extract_behaviors(D)
+    end
+    return get_behaviors(sup)
+end
+function extract_behaviors(::Type{DuckType{B}}) where {B}
+    return B
 end
 
-function extract_head(::Type{Meet{H, T}}) where {H,T}
-    return H
+function behaviors(::Type{D}) where D 
+    if D <: Behavior
+        return (D,)
+    end
+    these_behaviors = tuple_collect(get_behaviors(D))
+    return mapreduce(behaviors, append!!, these_behaviors)
 end
-function extract_tail(::Type{Meet{H, T}}) where {H,T}
-    return T
+function behaviors_union(::Type{D}) where D 
+    behavior_list = behaviors(D)
+    return Union{behavior_list...}
 end
 
-abstract type DuckType{M<:Meet} end
-
-function get_meet(::Type{DuckType{M}}) where M<:Meet
-    return M
-end
-function get_meet(::Type{D}) where D <: DuckType
-    return get_meet(supertype(D))
+extract_type(::Type{T}) where T = T
+@generated function tuple_collect(::Type{U}) where U
+    types = tuple(Base.uniontypes(U)...)
+    call = xcall(tuple, types...)
+    return codegen_ast(call)
 end
 
 function narrow(::Type{T}, ::Any) where {T <: DuckType}
     return T
 end
 
-struct Guise{Duck, Data}
+struct Guise{DuckT, Data}
     data::Data
 end
 
@@ -60,85 +67,43 @@ function implies(::Type{D1}, ::Type{D2}) where {D1<:DuckType, D2<:DuckType}
     if D1 === D2
         return true
     end
-    # otherwise, we need to recursively check if the Meet identity of the DuckTypes imply composition
-    return implies(get_meet(D1), get_meet(D2))
+    # We can also check all the behaviors of D2 and see if they are in the union of
+    # behaviors for D1. First, we try to just use the type system to check if D2 <: D1
+    behaviors_union(D2) <: behaviors_union(D1) && return true
+    
+    # If that fails, we need to check the behaviors of D2 one by one
+    d1_behaviors = behaviors(D1)
+    for b2 in behaviors(D2)
+        any(implies(b1, b2) for b1 in d1_behaviors) || return false
+    end
+    return true
 end
 # most basic check is whether the signature of the the second behavior is a subtype of the first
 function implies(::Type{Behavior{F1, S1}}, ::Type{Behavior{F2, S2}}) where {F1, S1, F2, S2} 
     return F1===F2 && S2 <: S1
 end
-# All behaviors imply no behavior (no behavior is the base case for the linked list type)
-function implies(::Type{<:Behavior}, ::Type{NoBehavior})
-    return true
-end
-# No behavior implies a Meet
-function implies(::Type{<:Behavior}, ::Type{<:Meet}) 
-    return false
-end
-# This is the base case for getting a Meet in the first param (NoBehavior means its the end of the list)
-function implies(::Type{Meet{Head, NoBehavior}}, ::Type{B}) where {Head, B<:Behavior}
-    return implies(Head, B)
-end
-# When we get a Meet that points to two children, we need to recurse on both
-# If either of the children imply the behavior, then the Meet implies the behavior
-function implies(::Type{Meet{Head, Tail}}, ::Type{B}) where {Head, Tail, B<:Behavior} 
-    return implies(Head, B) || implies(Tail, B)
-end
-# The most generic case is when we get two Meets:
-function implies(::Type{D1}, ::Type{D2}) where {D1<:Meet, D2<:Meet}
-    # If we get an exact match between two Meets, we can short-circuit to true
-    if D1 === D2
-        return true
-    end
-    # otherwise, we need to check if both the head and tail are implied by the Meet
-    return implies(D1, extract_head(D2)) && implies(D1, extract_tail(D2))
-end
-
-
-function quacks_like(::Type{Duck}, ::Type{Data}) where {Duck<:DuckType, Data}
-    return quacks_like(get_meet(Duck), Data)
-end
-function quacks_like(::Type{M}, ::Type{Data}) where {M<:Meet, Data}
-    type_checker = TypeChecker{Data}(Data)
-    return type_checker(M)
-end
 
 struct TypeChecker{Data}
     t::Type{Data}
 end
-Base.@constprop :aggressive function (::TypeChecker{Data})(::Type{B}) where {Data, B<:Behavior}
-    B === NoBehavior && return true
+function (::TypeChecker{Data})(::Type{B}) where {Data, B<:Behavior}
     sig_types = fieldtypes(get_signature(B))::Tuple
     func_type = get_func_type(B)
     replaced = map((x) -> x === This ? Data : x, sig_types)
     return hasmethod(func_type.instance, replaced)
 end
 
-function get_behaviors(first_meet::Type{<:Meet})
-    behaviors = Type{<:Behavior}[]
-    stack = Type{<:Meet}[]
-    push!(stack, first_meet)
-    while true
-        meet = pop!(stack)
-        head = extract_head(meet)
-        tail = extract_tail(meet)
-        head <: Meet && push!(stack, head)
-        tail <: Meet && push!(stack, tail)
-        head <: Behavior && !(head <: NoBehavior) && push!(behaviors, head)
-        tail <: Behavior && !(tail <: NoBehavior) && push!(behaviors, tail)
-        length(stack) == 0 && break
-    end
-    return behaviors
-end
-
-@generated function (type_checker::TypeChecker)(::Type{M}) where {M<:Meet}
-    behavior_stream = get_behaviors(M)
+@generated function quacks_like(::Type{Duck}, ::Type{Data}) where {Duck<:DuckType, Data}
+    type_checker = TypeChecker{Data}(Data)
+    behavior_list = behaviors(Duck)
     check_quotes = Expr[
-        :(type_checker($behavior) || return false)
-        for behavior in behavior_stream
+        :($type_checker($b) || return false)
+        for b in behavior_list
     ]
     return Expr(:block, check_quotes..., :(return true))
 end
+
+
 
 function wrap(::Type{Duck}, data::T) where {Duck<:DuckType, T}
     NarrowDuckType = narrow(Duck, T)::Type{<:Duck}
@@ -157,10 +122,10 @@ end
 
 # an example
 struct Iterable{T} <: DuckType{
-    Meet{
-    Meet{Behavior{typeof(iterate), Tuple{This, Any}}, NoBehavior},
-    Meet{Behavior{typeof(iterate), Tuple{This}}, NoBehavior}
-}
+    Union{
+        Behavior{typeof(iterate), Tuple{This, Any}},
+        Behavior{typeof(iterate), Tuple{This}}
+    }
 }
 end
 
@@ -192,7 +157,7 @@ function unwrap_where_this(sig::Type{<:Tuple}, args::Tuple)
     end
 end
 
-function check_for_fitting_duck_type(::Type{Duck}, ::Type{B})
+function check_for_fitting_duck_type(::Type{Duck}, ::Type{B}) where {Duck, B}
     # descend through Meets tracking the DuckType that created that meet
     # if we find a fitting Behavior, return the DuckType that created that meet
 end
@@ -203,19 +168,40 @@ function narrow(::Type{<:Iterable}, ::Type{T}) where T
 end
 
 struct IsContainer{T} <: DuckType{
-    Meet{
-    Meet{Behavior{typeof(getindex), Tuple{This, Any}}, NoBehavior},
-    get_meet(Iterable)
+    Union{
+        Behavior{typeof(length), Tuple{This}},
+        Behavior{typeof(getindex), Tuple{This, Int}},
+        Iterable{T}
 }
 }
 end
 
 using Test
 @testset "basics" begin
-    @test implies(IsContainer, Iterable)
-    @test !quacks_like(IsContainer, Int)
-    @test quacks_like(IsContainer, Vector{Int})
+    @test implies(IsContainer{Any}, Iterable{Any})
+    @test !quacks_like(IsContainer{Any}, IOBuffer)
+    @test quacks_like(IsContainer{Any}, Vector{Int})
     @test wrap(IsContainer{Int}, [1,2,3]) isa Guise{IsContainer{Int}, Vector{Int}}
     @test rewrap(wrap(IsContainer{Int}, [1,2,3]), Iterable) isa Guise{Iterable{Int}, Vector{Int}}
 end
+end
+
+
+module mwe
+abstract type Abstract{T} end
+struct StaticConcrete
+struct Concrete{A,B} <: Abstract{Abstract{B}} end
+
+function get_T(::Type{X}) where X <: Abstract
+    sup = supertype(X)
+    if sup === Any
+        return extract_T(X)
+    end
+    return get_T(sup)
+end
+function extract_T(::Type{Abstract{T}}) where T
+    return T
+end
+
+@show get_T(Concrete)
 end
