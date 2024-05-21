@@ -5,11 +5,11 @@ struct This end
 struct Behavior{F, Sig<:Tuple} end
 const NoBehavior = Behavior{Tuple{}}
 
-function get_signature(::Type{Behavior{F, S}}) where {F,S}
+function get_signature(::Type{Behavior{F,S}}) where {F,S}
     return S
 end
 
-function get_func_type(::Type{Behavior{F, S}}) where {F,S}
+function get_func_type(::Type{Behavior{F,S}}) where {F,S}
     return F
 end
 
@@ -17,6 +17,9 @@ end
 struct Meet{
     Head, #<:Union{Meet, Behavior}, 
     Tail  #<:Union{Meet, Behavior}
+    # TODO: Meet could hold a reference to the DuckType that it is a part of
+    # that would let us find the correct rewrap to dispatch out to the original 
+    # DuckType dispatch
     }
 end
 
@@ -32,7 +35,6 @@ abstract type DuckType{M<:Meet} end
 function get_meet(::Type{DuckType{M}}) where M<:Meet
     return M
 end
-
 function get_meet(::Type{D}) where D <: DuckType
     return get_meet(supertype(D))
 end
