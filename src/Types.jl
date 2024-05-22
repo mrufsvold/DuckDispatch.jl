@@ -9,18 +9,17 @@ struct This end
 - `Sig` is the signature of the function that the `DuckType` must implement. Sig is a tuple of types, 
     where `This` is a placeholder for the `DuckType` itself.
 """
-struct Behavior{F, Sig<:Tuple} end
+struct Behavior{F, Sig <: Tuple} end
 """
     `get_signature(::Type{Behavior}) -> NTuple{N, Type}` 
 Returns the signature of a `Behavior` type.
 """
-get_signature(::Type{Behavior{F,S}}) where {F,S} = S
+get_signature(::Type{Behavior{F, S}}) where {F, S} = S
 """
     `get_func_type(::Type{Behavior}) -> Type{F}`
 Returns the function type of a `Behavior` type.
 """
-get_func_type(::Type{Behavior{F,S}}) where {F,S} = F
-
+get_func_type(::Type{Behavior{F, S}}) where {F, S} = F
 
 """
 `DuckType{Behaviors, DuckTypes}` is a type that represents a DuckType.
@@ -48,7 +47,7 @@ end
 Returns the `DuckType` that a `Guise` implements.
 """
 get_duck_type(::Type{Guise{D, T}}) where {D, T} = D
-get_duck_type(::G) where G <: Guise = get_duck_type(G)
+get_duck_type(::G) where {G <: Guise} = get_duck_type(G)
 
 """
 `TypeChecker{Data}` is a callable struct which checks if there is a method implemented for
@@ -57,7 +56,7 @@ get_duck_type(::G) where G <: Guise = get_duck_type(G)
 struct TypeChecker{Data}
     t::Type{Data}
 end
-function (::TypeChecker{Data})(::Type{B}) where {Data, B<:Behavior}
+function (::TypeChecker{Data})(::Type{B}) where {Data, B <: Behavior}
     sig_types = fieldtypes(get_signature(B))::Tuple
     func_type = get_func_type(B)
     replaced = map((x) -> x === This ? Data : x, sig_types)

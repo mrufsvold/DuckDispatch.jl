@@ -1,6 +1,4 @@
-function get_return_type(::Type{<:DuckType}, ::Behavior)
-    return Any
-end
+get_return_type(::Type{<:DuckType}, ::Behavior) = Any
 
 function get_specific_duck_type(sig, arg_types)
     this_arg_types = Union{}
@@ -26,7 +24,8 @@ function dispatch_behavior(behavior::Type{Behavior{F, S}}, args...; kwargs...) w
     if isnothing(OGDuckT)
         error("No fitting iterate method found for $DuckT")
     end
-    return F.instance(rewrap_where_this(S, OGDuckT, args)...; kwargs...)::get_return_type(OGDuckT, behavior)
+    return F.instance(rewrap_where_this(S, OGDuckT, args)...;
+        kwargs...)::get_return_type(OGDuckT, behavior)
 end
 
 """
