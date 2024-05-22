@@ -1,14 +1,14 @@
 ```@meta
-CurrentModule = InterfaceDispatch
+CurrentModule = DuckDispatch
 ```
 
-# InterfaceDispatch
+# DuckDispatch
 
-Documentation for [InterfaceDispatch](https://github.com/mrufsvold/InterfaceDispatch.jl).
+Documentation for [DuckDispatch](https://github.com/mrufsvold/DuckDispatch.jl).
 
 ```@index
 ```
 
 ```@autodocs
-Modules = [InterfaceDispatch]
+Modules = [DuckDispatch]
 ```

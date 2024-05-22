@@ -1,14 +1,14 @@
-using InterfaceDispatch
+using DuckDispatch
 using Documenter
 
-DocMeta.setdocmeta!(InterfaceDispatch, :DocTestSetup, :(using InterfaceDispatch); recursive=true)
+DocMeta.setdocmeta!(DuckDispatch, :DocTestSetup, :(using DuckDispatch); recursive=true)
 
 makedocs(;
-    modules=[InterfaceDispatch],
+    modules=[DuckDispatch],
     authors="Micah Rufsvold",
-    sitename="InterfaceDispatch.jl",
+    sitename="DuckDispatch.jl",
     format=Documenter.HTML(;
-        canonical="https://mrufsvold.github.io/InterfaceDispatch.jl",
+        canonical="https://mrufsvold.github.io/DuckDispatch.jl",
         edit_link="master",
         assets=String[],
     ),
@@ -18,6 +18,6 @@ makedocs(;
 )
 
 deploydocs(;
-    repo="github.com/mrufsvold/InterfaceDispatch.jl",
+    repo="github.com/mrufsvold/DuckDispatch.jl",
     devbranch="master",
 )
