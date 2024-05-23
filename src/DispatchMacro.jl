@@ -30,11 +30,11 @@ macro with_interface(func_expr)
     if !is_function(func_expr)
         error("This isn't a function definition!")
     end
-    
+
     # todo inner function needs to change its type annotations to Guise{<:DuckType, <:Any}
     inner_func = JLFunction(func_expr)
     func_args = FuncArg.(inner_func.args)
-    
+
     outer_func_expr = build_outer_function(inner_func.name, func_args)
     inner_func_expr = build_inner_function!(inner_func, func_args)
     return quote
@@ -51,18 +51,21 @@ function build_outer_function(name::Symbol, func_args::Vector{FuncArg})
     # that allows us to subout any to capture the most generic dispatch and insert our own logic
     arg_names = get_name.(func_args)
     annotation_checks = arg_with_interface_type_check.(func_args)
-    outer_func.args = [:($n::$T) for (n,T) in zip(arg_names, annotation_checks)]
+    outer_func.args = [:($n::$T) for (n, T) in zip(arg_names, annotation_checks)]
 
     add_dispatch_body!(outer_func)
 
     outer_func_ast = codegen_ast(outer_func)
     mark_interface_dispatch_method = outer_func
-    mark_interface_dispatch_method.body = quote nothing end
+    mark_interface_dispatch_method.body = quote
+        nothing
+    end
     pushfirst!(mark_interface_dispatch_method.args, :(::$HasDuckDispatch))
 
-    return quote 
+    return quote
         # we add this has method check so that we don't accidentally overwrite an existing method
-        if hasmethod($name, tuple($(annotation_checks...))) && !hasmethod($name, tuple($HasDuckDispatch, $(annotation_checks...)))
+        if hasmethod($name, tuple($(annotation_checks...))) &&
+           !hasmethod($name, tuple($HasDuckDispatch, $(annotation_checks...)))
             error(lazy"Cannot create a new method for $name disptaching on an interface because there is already a method defined for $name($(tuple((annotation_checks...))))")
         end
         $(codegen_ast(mark_interface_dispatch_method))
@@ -75,9 +78,6 @@ function build_inner_function!(inner_func, func_args)
     pushfirst!(inner_func.args, :(::$IsDuckDispatch))
     return codegen_ast(inner_func)
 end
-
-
-
 
 # Macro Helpers:
 
@@ -98,12 +98,12 @@ function dispatch(f, args...)
     f_method_table = methods(f)
     f_sigs = Iterators.map(extract_arg_types, f_method_table.ms)
     f_sigs = collect(Iterators.filter(m -> types_can_be_wrapped(m, arg_types), f_sigs))
-    length(f_sigs) != 1 && error(lazy"Expected 1 matching methods, got $(length(f_methods))")
-    
+    length(f_sigs) != 1 &&
+        error(lazy"Expected 1 matching methods, got $(length(f_methods))")
+
     wrapped_args = map(add_interface_wrap, only(f_sigs), args)
     return f(wrapped_args...)
 end
-
 
 function types_can_be_wrapped(interface_method_args, arg_types)
     length(interface_method_args) != length(arg_types) && return false
@@ -111,8 +111,8 @@ function types_can_be_wrapped(interface_method_args, arg_types)
     for (input_type, target_type) in zip(arg_types, interface_method_args)
         if target_type <: Guise
             !meets_requirements(target_type, input_type) && return false
-        # if we aren't looking at an interface type, then we need to make sure that we have 
-        # a arg that is a subtype directly
+            # if we aren't looking at an interface type, then we need to make sure that we have 
+            # a arg that is a subtype directly
         elseif !(input_type <: target_type)
             return false
         end
@@ -132,7 +132,6 @@ end
 #     using ExproniconLite: @test_expr, JLFunction
 #     using SumTypes: @cases
 
-
 #     jlf = JLFunction(:(f(a::Any, b::Int, c::Vector{T}) where T = "hi!"))
 #     DuckDispatch.add_dispatch_body!(jlf)
 #     @test_expr jlf.body == :($(DuckDispatch.dispatch)(f, $(DuckDispatch.IsDuckDispatch)(), a, b, c))
@@ -147,7 +146,7 @@ end
 #         DuckDispatch.RequiredMethod{iterate}(Tuple{DuckDispatch.This}),
 #         DuckDispatch.RequiredMethod{iterate}(Tuple{DuckDispatch.This, Any})
 #     )
-    
+
 #     function iterate(arg1::DuckDispatch.Guise{IsIterable{T}, <:Any}) where T
 #         return iterate(DuckDispatch.unwrap(arg1))::Union{Nothing, Tuple{<:T, <:Any}}
 #     end
@@ -177,7 +176,7 @@ end
 #     function eltype(x::DuckDispatch.Guise{IsSizedIterator{T}, <:Any}) where T
 #         return eltype(DuckDispatch.rewrap(x, IsIterable{T}))::Type{T}
 #     end
-    
+
 #     # This is the stuff that needs to be created by the with_interface macro
 #     function collect_ints(
 #             ::DuckDispatch.IsDuckDispatch, # insert the DuckDispatch
@@ -205,4 +204,3 @@ end
 
 #     @test collect_strings(("a","b"))::Vector{String} == ["a","b"]
 # end
-
