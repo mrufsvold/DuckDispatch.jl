@@ -47,6 +47,7 @@ end
 Returns the `DuckType` that a `Guise` implements.
 """
 get_duck_type(::Type{Guise{D, T}}) where {D, T} = D
+get_duck_type(::Type{Guise{D}}) where {D} = D
 get_duck_type(::G) where {G <: Guise} = get_duck_type(G)
 
 """
@@ -60,5 +61,11 @@ function (::TypeChecker{Data})(::Type{B}) where {Data, B <: Behavior}
     sig_types = fieldtypes(get_signature(B))::Tuple
     func_type = get_func_type(B)
     replaced = map((x) -> x === This ? Data : x, sig_types)
-    return hasmethod(func_type.instance, replaced)
+    return !isempty(methods(func_type.instance, replaced))
 end
+
+"""
+`DispatchedOnDuckType` is a singleton type that is used to indicate a method created
+for duck type dispatching.
+"""
+struct DispatchedOnDuckType end

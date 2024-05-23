@@ -7,6 +7,6 @@
 - [X] Write the function that finds the original DuckType which defined the behavior
 - [X] Document basics
 - [X] Break into files
-- [X] Build all the manual tooling for behavior dispatch -- in progress
+- [X] Build all the manual tooling for behavior dispatch
 - [ ] Build all the manual tooling for guise dispatch
 - [ ] Redo macros
