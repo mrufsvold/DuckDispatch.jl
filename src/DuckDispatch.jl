@@ -54,11 +54,11 @@ include("MethodDispatch.jl")
         function DuckDispatch.get_return_type(::Type{Iterable{T}},
                 ::Type{DuckDispatch.Behavior{
                     typeof(iterate), Tuple{DuckDispatch.This, Any}}}) where {T}
-            return Tuple{T, <:Any}
+            return Union{Nothing, Tuple{T, <:Any}}
         end
         function DuckDispatch.get_return_type(::Type{Iterable{T}},
                 ::Type{DuckDispatch.Behavior{typeof(iterate), Tuple{DuckDispatch.This}}}) where {T}
-            return Tuple{T, <:Any}
+            return Union{Nothing, Tuple{T, <:Any}}
         end
 
         # For each method, we need a fallback definition
@@ -76,7 +76,7 @@ include("MethodDispatch.jl")
         function Base.iterate(arg1::DuckDispatch.Guise{DuckT, <:Any}, arg2) where {DuckT}
             return DuckDispatch.dispatch_behavior(
                 DuckDispatch.Behavior{typeof(iterate), Tuple{DuckDispatch.This, Any}},
-                arg1
+                arg1, arg2
             )
         end
         function Base.iterate(arg1::DuckDispatch.Guise{Iterable{T}}, arg2::Any) where {T}
@@ -135,7 +135,7 @@ include("MethodDispatch.jl")
                 ::DuckDispatch.DispatchedOnDuckType,
                 arg1::DuckDispatch.Guise{IsContainer{Int}, <:Any}
         )
-            return collect(arg1)
+            return Int[x for x in arg1]
         end
         function collect_ints(arg1::Any)
             return DuckDispatch.wrap_and_dispatch(
@@ -143,8 +143,8 @@ include("MethodDispatch.jl")
                 arg1
             )
         end
-        @test collect_ints((1, 2)) == [1, 2]
     end
+    @test collect_ints((1, 2)) == [1, 2]
 end
 
 end
