@@ -65,6 +65,21 @@ function (::TypeChecker{Data})(::Type{B}) where {Data, B <: Behavior}
 end
 
 """
+CheckQuacksLike{T} is a callable struct which wraps a Tuple{Types...} for some 
+concrete args. When called on a ducktype method signature, it checks if all the args quack like
+the method args.
+"""
+struct CheckQuacksLike{T}
+    t::Type{T}
+end
+function (::CheckQuacksLike{T})(::Type{M}) where {T, M}
+    method_arg_types = fieldtypes(M)
+    input_arg_types = fieldtypes(T)
+    can_quack = map(quacks_like, method_arg_types, input_arg_types)
+    return all(can_quack)
+end
+
+"""
 `DispatchedOnDuckType` is a singleton type that is used to indicate a method created
 for duck type dispatching.
 """
