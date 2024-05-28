@@ -94,6 +94,11 @@ include("MethodDispatch.jl")
             }
         }
         end
+        # The narrow function is used to find the most specific DuckType that can wrap a given object
+        function DuckDispatch.narrow(::Type{<:IsContainer}, ::Type{T}) where {T}
+            E = eltype(T)
+            return IsContainer{E}
+        end
         function Base.getindex(
                 arg1::DuckDispatch.Guise{IsContainer{T}, <:Any}, arg2::Int) where {T}
             return DuckDispatch.run_behavior(getindex, arg1, arg2)
@@ -129,8 +134,8 @@ include("MethodDispatch.jl")
     @test iterate(DuckDispatch.wrap(IsContainer{Int}, [1, 2, 3])) == (1, 2)
     @test length(DuckDispatch.wrap(IsContainer{Int}, [1, 2, 3])) == 3
 
-    DuckDispatch.@duck_dispatch function collect_ints(arg1::IsContainer{Int})
-        return Int[x for x in arg1]
+    DuckDispatch.@duck_dispatch function collect_ints(arg1::IsContainer{T}) where {T}
+        return T[x for x in arg1]
     end
     @test collect_ints((1, 2)) == [1, 2]
 end

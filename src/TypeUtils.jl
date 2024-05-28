@@ -105,7 +105,8 @@ function quacks_like(::Type{T}, ::Type{Data}) where {T, Data}
 end
 function quacks_like(::Type{G}, ::Type{Data}) where {G <: Guise, Data}
     DuckT = get_duck_type(G)
-    return quacks_like(DuckT, Data)
+    narrow_duck_type = narrow(DuckT, Data)
+    return quacks_like(narrow_duck_type, Data)
 end
 
 """

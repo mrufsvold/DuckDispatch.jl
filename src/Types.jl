@@ -48,6 +48,13 @@ Returns the `DuckType` that a `Guise` implements.
 """
 get_duck_type(::Type{Guise{D, T}}) where {D, T} = D
 get_duck_type(::Type{Guise{D}}) where {D} = D
+function get_duck_type(u::UnionAll)
+    duck_type_internal_name = u.body.body.parameters[1].name
+    duck_type_module = duck_type_internal_name.module
+    duck_type_name = duck_type_internal_name.name
+    duck_type = getfield(duck_type_module, duck_type_name)::Type{<:DuckType}
+    return duck_type
+end
 get_duck_type(::G) where {G <: Guise} = get_duck_type(G)
 
 """
