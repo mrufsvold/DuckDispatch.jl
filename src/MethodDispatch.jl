@@ -112,12 +112,20 @@ Base.@constprop :aggressive function wrap_args(::F, args) where {F}
     return wrapped_args
 end
 
+function check_param_for_duck_and_wrap(T)
+    if T <: Type
+        return T <: DuckType ? Guise{T, <:Any} : T
+    end
+    if T isa TypeVar
+        return T
+    end
+    error("Unexpected type annotation $T")
+end
+
 function arg_with_guise_wrap_check(func_arg::FuncArg)
     return @cases func_arg.type_annotation begin
         none => :($(func_arg.name)::Any)
-        [symbol, expr](type_param) => :($(func_arg.name)::($type_param <: $DuckType ?
-                                                           $Guise{$type_param, <:Any} :
-                                                           $type_param))
+        [symbol, expr](type_param) => :($(func_arg.name)::($(check_param_for_duck_and_wrap($type_param))))
     end
 end
 
