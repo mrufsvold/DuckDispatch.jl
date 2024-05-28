@@ -1,55 +1,73 @@
-macro duck(ex)
-    return duck_macro_logic(ex)
+macro duck_dispatch(ex)
+    return duck_dispatch_logic(ex)
 end
 
-function duck_macro_logic(ex)
-    current_methods = gensym(:current_methods)
-    new_methods = gensym(:new_methods)
-
+function duck_dispatch_logic(ex)
     f = JLFunction(ex)
 
-    anys = [Any for _ in f.args]
-    arg_count = length(anys)
+    func_args = FuncArg.(f.args)
 
-    func_args = FuncArg.(inner_func.args)
-
-    user_args_with_guise_check = arg_with_guise_wrap_check.(func_args)
+    arg_count = length(f.args)
+    anys = tuple((Any for _ in f.args)...)
     untyped_args = tuple((get_name(func_arg) for func_arg in func_args)...)
     user_type_annotations = get_type_annotation.(func_args)
 
-    quote
-        if !isdefined(@__MODULE__, $(f.name))
-            function $(f.name) end
+    user_args_with_guise_check = arg_with_guise_wrap_check.(func_args)
+    pushfirst!(user_args_with_guise_check, :(::$DispatchedOnDuckType))
+    f.args = user_args_with_guise_check
+    f_name = esc(f.name)
+    user_func = esc(codegen_ast(f))
+
+    get_method_sym = gensym(:get_methods)
+    get_method_sym_esc = esc(get_method_sym)
+
+    current_methods_sym = gensym(:current_methods)
+    current_methods_esc = esc(current_methods_sym)
+    func_name_sym = gensym(:func_name)
+    func_name_sym_esc = esc(func_name_sym)
+    replace_get_method = Expr(:quote,
+        quote
+            function (::typeof($get_methods))(::Type{typeof(Expr(:$, $func_name_sym))})
+                return tuple(
+                    Tuple{$(user_type_annotations...)},
+                    Expr(:$, :($current_methods_sym))...
+                )
+            end
         end
+    )
+
+    return quote
+        # We can't get typeof() on a function that hasn't been defined yet
+        # so first we make sure the name exists
+        function $f_name end
+
         # this gets the list of ducktype methods currently defined (defaults to ())
-        $current_methods = $get_methods(typeof($(f.name)))
+        $current_methods_esc = $get_methods(typeof($f_name))
 
         # Here we will check to make sure there isn't already a normal function that would
-        # be overwrite by the ducktype fallback method
-        if $hasmethod($(f.name), ($(anys...))) &&
-           any(map(length_matches, $current_methods, Iterators.repeated($arg_count)))
-            error("can't overwrite f")
+        # be overwritten by the ducktype fallback method
+        if $hasmethod($f_name, $anys) &&
+           any(map($length_matches, $current_methods_esc, Iterators.repeated($arg_count)))
+            error("can't overwrite " * string($f_name))
         end
 
-        @__doc__
-        @inline function $(f.name)($(user_args_with_guise_check...))
-            # user body
+        # Core.@__doc__
+        $user_func
+
+        function (f::typeof($f_name))($(untyped_args...); kwargs...)
+            arg_types = get_arg_types(tuple($(untyped_args...)))
+            wrapped_args = wrap_args(f, arg_types)
+            return @inline f($DispatchedOnDuckType(), wrapped_args...; kwargs...)
         end
 
-        function (f::typeof($(f.name)))($(untyped_args...); kwargs...)
-            wrapped_args = wrap_args(f, $untyped_args)
-            return f(wrapped_args...; kwargs...)
-        end
-
-        $new_methods = tuple(Tuple{$(user_type_annotations...)}, $current_methods...)
         # Update the get_methods function to include the new method
-        @eval function get_methods(::Type{typeof($(f.name))})
-            return Expr(:$, $new_methods)
-        end
+        # have to return to f.name because @eval doesn't like :escape
+        $func_name_sym_esc = $f_name
+        $get_method_sym_esc = $get_methods
+        eval($replace_get_method)
 
         # clear out current_methods var so we don't consume extra memory
-        $current_methods = nothing
-        $new_methods = nothing
+        current_methods_esc = nothing
     end
 end
 
@@ -72,7 +90,11 @@ function wrap_with_guise(target_type::Type{T}, arg) where {T}
     return wrap(DuckT, arg)
 end
 
-function wrap_args(::F, args) where {F}
+Base.@constprop :aggressive function get_arg_types(::T) where {T}
+    return fieldtypes(T)
+end
+
+Base.@constprop :aggressive function wrap_args(::F, args) where {F}
     ms = get_methods(F)
     arg_types = typeof(args)
     check_quacks_like = CheckQuacksLike(arg_types)

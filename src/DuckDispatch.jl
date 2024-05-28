@@ -136,15 +136,11 @@ include("MethodDispatch.jl")
         end
 
         current_methods = DuckDispatch.get_methods(typeof(collect_ints))
+
         if hasmethod(collect_ints, (Any,)) &&
            any(map(DuckDispatch.length_matches, current_methods, Iterators.repeated(1)))
             error("can't overwrite collect_ints")
         end
-
-        new_methods = tuple(
-            Tuple{IsContainer{Int}},
-            current_methods...
-        )
 
         function collect_ints(arg1::DuckDispatch.Guise{IsContainer{Int}, <:Any})
             return Int[x for x in arg1]
@@ -156,10 +152,18 @@ include("MethodDispatch.jl")
         end
 
         @eval function DuckDispatch.get_methods(::Type{typeof(collect_ints)})
-            return $new_methods
+            return $(tuple(
+                Tuple{IsContainer{Int}},
+                current_methods...
+            ))
         end
     end
     @test collect_ints((1, 2)) == [1, 2]
+
+    DuckDispatch.@duck_dispatch function collect_ints2(arg1::IsContainer{Int})
+        return Int[x for x in arg1]
+    end
+    @test collect_ints2((1, 2)) == [1, 2]
 end
 
 end
