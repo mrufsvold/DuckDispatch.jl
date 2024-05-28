@@ -100,6 +100,13 @@ Checks if `Data` implements all required `Behavior`s of `DuckT`.
                         ]
     return Expr(:block, check_quotes..., :(return true))
 end
+function quacks_like(::Type{T}, ::Type{Data}) where {T, Data}
+    return Data <: T
+end
+function quacks_like(::Type{G}, ::Type{Data}) where {G <: Guise, Data}
+    DuckT = get_duck_type(G)
+    return quacks_like(DuckT, Data)
+end
 
 """
     `wrap(::Type{DuckT}, data::T) -> Guise{DuckT, T}`
