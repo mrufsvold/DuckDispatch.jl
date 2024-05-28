@@ -47,6 +47,14 @@ end
 Returns the `DuckType` that a `Guise` implements.
 """
 get_duck_type(::Type{Guise{D, T}}) where {D, T} = D
+get_duck_type(::Type{Guise{D}}) where {D} = D
+function get_duck_type(u::UnionAll)
+    duck_type_internal_name = u.body.body.parameters[1].name
+    duck_type_module = duck_type_internal_name.module
+    duck_type_name = duck_type_internal_name.name
+    duck_type = getfield(duck_type_module, duck_type_name)::Type{<:DuckType}
+    return duck_type
+end
 get_duck_type(::G) where {G <: Guise} = get_duck_type(G)
 
 """
@@ -60,5 +68,26 @@ function (::TypeChecker{Data})(::Type{B}) where {Data, B <: Behavior}
     sig_types = fieldtypes(get_signature(B))::Tuple
     func_type = get_func_type(B)
     replaced = map((x) -> x === This ? Data : x, sig_types)
-    return hasmethod(func_type.instance, replaced)
+    return !isempty(methods(func_type.instance, replaced))
 end
+
+"""
+CheckQuacksLike{T} is a callable struct which wraps a Tuple{Types...} for some 
+concrete args. When called on a ducktype method signature, it checks if all the args quack like
+the method args.
+"""
+struct CheckQuacksLike{T}
+    t::Type{T}
+end
+function (x::CheckQuacksLike{T})(::Type{M}) where {T, M}
+    method_arg_types = fieldtypes(M)
+    input_arg_types = (DispatchedOnDuckType, fieldtypes(T)...)
+    can_quack = map(quacks_like, method_arg_types, input_arg_types)
+    return all(can_quack)
+end
+
+"""
+`DispatchedOnDuckType` is a singleton type that is used to indicate a method created
+for duck type dispatching.
+"""
+struct DispatchedOnDuckType end
