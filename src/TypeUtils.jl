@@ -86,6 +86,13 @@ end
 function implies(::Type{Behavior{F1, S1}}, ::Type{Behavior{F2, S2}}) where {F1, S1, F2, S2}
     return F1 === F2 && S2 <: S1
 end
+function implies(::Type{T1}, ::Type{T2}) where {T1, T2}
+    return T2 <: T1
+end
+function implies(t1::Tuple, t2::Tuple)
+    length(t1) != length(t2) && return false
+    return all(Iterators.map(implies, t1, t2))
+end
 
 """
     `quacks_like(DuckT, Data) -> Bool`

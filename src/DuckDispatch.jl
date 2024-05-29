@@ -70,10 +70,10 @@ include("DuckTypeMacro.jl")
     @test iterate(DuckDispatch.wrap(IsContainer{Int}, [1, 2, 3])) == (1, 2)
     @test length(DuckDispatch.wrap(IsContainer{Int}, [1, 2, 3])) == 3
 
-    DuckDispatch.@duck_dispatch function collect_ints(arg1::IsContainer{T}) where {T}
+    DuckDispatch.@duck_dispatch function my_collect(arg1::IsContainer{T}) where {T}
         return T[x for x in arg1]
     end
-    @test collect_ints((1, 2)) == [1, 2]
+    @test my_collect((1, 2)) == [1, 2]
 end
 
 end

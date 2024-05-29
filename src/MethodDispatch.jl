@@ -25,7 +25,7 @@ function duck_dispatch_logic(ex)
         # Here we will check to make sure there isn't already a normal function that would
         # be overwritten by the ducktype fallback method
         if $hasmethod($f_name, $anys) &&
-           any(map($is_duck_dispatched, $methods($f_name), Iterators.repeated($arg_count)))
+           !any(map($is_duck_dispatched, $methods($f_name), Iterators.repeated($arg_count)))
             error("can't overwrite " * string($f_name))
         end
 
@@ -91,13 +91,20 @@ Base.@constprop :aggressive function wrap_args(duck_sigs, args)
     quack_check_result = map(check_quacks_like, duck_sigs)
 
     number_of_matches = sum(quack_check_result)
-    number_of_matches == 1 || error("Expected 1 matching method, got $number_of_matches")
+    # todo make this a MethodError
+    number_of_matches == 0 &&
+        error("Could not find a matching method for the given arguments.")
 
-    match_index = findfirst(quack_check_result)
-    method_match = duck_sigs[match_index]
+    method_match = get_most_specific(quack_check_result, duck_sigs)
     method_types = fieldtypes(method_match)[2:end]
     wrapped_args = map(wrap_with_guise, method_types, args)
     return wrapped_args
+end
+
+Base.@assume_effects :foldable function get_most_specific(quack_check_result, duck_sigs)
+    matches = [duck_sigs[[quack_check_result...]]...]::Vector
+    sort!(matches; lt = implies)
+    return first(matches)
 end
 
 function check_param_for_duck_and_wrap(T)
