@@ -29,7 +29,6 @@ function _duck_type(duck_type_expr)
     jl_struct = JLStruct(duck_type_expr)
 
     required_behaviors, narrow = get_required_behaviors(jl_struct)
-    @show narrow
     behaviors = [behavior.behavior for behavior in required_behaviors]
 
     all_func_exprs = Iterators.flatmap(required_behaviors) do rb

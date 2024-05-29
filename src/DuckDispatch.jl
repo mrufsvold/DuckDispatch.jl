@@ -1,10 +1,10 @@
 module DuckDispatch
 
+export This, @duck_type, @duck_dispatch
 if VERSION >= v"1.11"
     public
     Guise,
     DuckType,
-    This,
     narrow,
     wrap,
     unwrap,
@@ -35,6 +35,17 @@ include("DuckTypeMacro.jl")
         function Base.iterate(::DuckDispatch.This, ::Any)::Union{Nothing, Tuple{T, <:Any}} end
         @narrow T -> Iterable{eltype(T)}
     end
+    @duck_dispatch function my_collect(arg1::Iterable{T}) where {T}
+        v = T[]
+        for x in arg1
+            push!(v, x)
+        end
+        return v
+    end
+
+    @test my_collect((1, 2)) == [1, 2]
+    @test my_collect(1:2) == [1, 2]
+    @test my_collect((i for i in 1:2)) == [1, 2]
 
     """
     `IsContainer{T}` is a duck type that requires `T` to be an iterable and indexible type of a finite length.
