@@ -69,7 +69,7 @@ end
         Data, B <: Behavior}
     sig_types = fieldtypes(get_signature(B))::Tuple
     func_type = get_func_type(B)
-    replaced = map((x) -> x === This ? Data : x, sig_types)
+    replaced = tuple_map((x) -> x === This ? Data : x, sig_types)
     checks = :($hasmethod($(func_type.instance), $replaced) ||
                !isempty(methods($(func_type.instance), $replaced)))
     return checks
@@ -86,8 +86,7 @@ end
 function (x::CheckQuacksLike{T})(::Type{M}) where {T, M}
     method_arg_types = fieldtypes(M)
     input_arg_types = (DispatchedOnDuckType, fieldtypes(T)...)
-    can_quack = map(quacks_like, method_arg_types, input_arg_types)
-    return all(can_quack)
+    return tuple_all(quacks_like, method_arg_types, input_arg_types)
 end
 
 """
