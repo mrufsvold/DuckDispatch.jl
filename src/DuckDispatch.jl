@@ -36,6 +36,9 @@ include("DuckTypeMacro.jl")
         @narrow T -> Iterable{eltype(T)}
     end
 
+    """
+    `IsContainer{T}` is a duck type that requires `T` to be an iterable and indexible type of a finite length.
+    """
     DuckDispatch.@duck_type struct IsContainer{T} <: Union{Iterable{T}}
         function Base.length(::DuckDispatch.This)::Int end
         function Base.getindex(::DuckDispatch.This, ::Int)::T end

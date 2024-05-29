@@ -29,8 +29,7 @@ function duck_dispatch_logic(ex)
             error("can't overwrite " * string($f_name))
         end
 
-        # Core.@__doc__
-        $user_func
+        Core.@__doc__ $user_func
 
         const duck_sigs = tuple(
             $filter!(is_dispatched_on_ducktype, $extract_sig_type.($methods($f_name)))...

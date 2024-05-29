@@ -23,7 +23,7 @@ function _duck_type(duck_type_expr)
     )
 
     quote
-        $(esc(codegen_ast(type_def)))
+        Core.@__doc__ $(esc(codegen_ast(type_def)))
         $(codegen_ast(narrow))
         $(all_func_exprs...)
     end
