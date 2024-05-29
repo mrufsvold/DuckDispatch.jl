@@ -65,11 +65,14 @@ get_duck_type(::G) where {G <: Guise} = get_duck_type(G)
 struct TypeChecker{Data}
     t::Type{Data}
 end
-function (::TypeChecker{Data})(::Type{B}) where {Data, B <: Behavior}
+@generated function (::TypeChecker{Data})(::Type{B}) where {
+        Data, B <: Behavior}
     sig_types = fieldtypes(get_signature(B))::Tuple
     func_type = get_func_type(B)
     replaced = map((x) -> x === This ? Data : x, sig_types)
-    return !isempty(methods(func_type.instance, replaced))
+    checks = :($hasmethod($(func_type.instance), $replaced) ||
+               !isempty(methods($(func_type.instance), $replaced)))
+    return checks
 end
 
 """
