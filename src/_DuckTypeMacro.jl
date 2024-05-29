@@ -11,7 +11,8 @@ function RequireStatements(jl_struct::JLStruct)
     narrow = nothing
 
     full_interface_name = get_full_struct_name(jl_struct)
-    escaped_type_vars = jl_struct.typevars isa Nothing ? nothing : Expr[esc(t) for t in jl_struct.typevars]
+    escaped_type_vars = jl_struct.typevars isa Nothing ? nothing :
+                        Expr[esc(t) for t in jl_struct.typevars]
 
     for expr in jl_struct.misc
         if expr.head == :macrocall
@@ -22,14 +23,16 @@ function RequireStatements(jl_struct::JLStruct)
             end
         elseif is_function(expr)
             push!(
-                method_list, 
-                RequiredFunctionality(JLFunction(expr), full_interface_name, escaped_type_vars)
+                method_list,
+                RequiredFunctionality(
+                    JLFunction(expr), full_interface_name, escaped_type_vars)
             )
         else
             error("Unknown expression in definition of $(jl_struct.name): $expr")
         end
     end
-    return RequireStatements(jl_struct.name, jl_struct.typevars, method_list, require, narrow)
+    return RequireStatements(
+        jl_struct.name, jl_struct.typevars, method_list, require, narrow)
 end
 
 function find_require_statement(statements)
@@ -63,12 +66,10 @@ function _duck_type(duck_type_expr)
 
     # lastly, we need to generate the narrow function for the new interface.
 
-    # todo -- also need to dispatch for get_return_type
     return quote
         $main_struct_expr
         $required_method_expr
         $(required_method_dispatch_exprs...)
-        
     end
 end
 
@@ -103,18 +104,15 @@ function create_required_methods_func(required_statements::RequireStatements)
     return codegen_ast(JLFunction(;
         name = req_method_ref,
         args = [esc(:(::$Type{T}))],
-        whereparams = [esc(:(T<:$(required_statements.interface_type)))],
+        whereparams = [esc(:(T <: $(required_statements.interface_type)))],
         body = :(tuple($(req_method_exprs...)))
-        ))
+    ))
 end
 
-
 function create_required_method(req_method::JLFunction)
-    t_anns = [
-        is_This(t_ann) ? This : t_ann
-        for t_ann in get_type_annotation.(FuncArg.(req_method.args))
-    ]
-    
+    t_anns = [is_This(t_ann) ? This : t_ann
+              for t_ann in get_type_annotation.(FuncArg.(req_method.args))]
+
     req_method = esc(:($RequiredMethod{$(req_method.name)}(Tuple{$(t_anns...)})))
     return req_method
 end
@@ -142,10 +140,9 @@ function create_new_dispatch(rf::RequiredFunctionality)
             return run($(rf.name), tuple($(arg_names...)))
         end,
         whereparams = rf.interface_type_vars
-        )
+    )
     return codegen_ast(jlf)
 end
-
 
 # @testitem "interface macro" begin
 #     import Base: eltype
@@ -174,4 +171,3 @@ end
 #     end
 #     @test check_eltype(DuckDispatch.wrap(HasEltype1, [1])) == Int
 # end
-

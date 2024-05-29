@@ -41,17 +41,6 @@ include("DuckTypeMacro.jl")
             E = eltype(T)
             return Iterable{E}
         end
-
-        # if a method has a return type, define a dispatch
-        function DuckDispatch.get_return_type(::Type{Iterable{T}},
-                ::Type{DuckDispatch.Behavior{
-                    typeof(iterate), Tuple{DuckDispatch.This, Any}}}) where {T}
-            return Union{Nothing, Tuple{T, <:Any}}
-        end
-        function DuckDispatch.get_return_type(::Type{Iterable{T}},
-                ::Type{DuckDispatch.Behavior{typeof(iterate), Tuple{DuckDispatch.This}}}) where {T}
-            return Union{Nothing, Tuple{T, <:Any}}
-        end
     end
 
     DuckDispatch.@duck_type struct IsContainer{T} <: Union{Iterable{T}}
