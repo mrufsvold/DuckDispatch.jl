@@ -5,8 +5,8 @@ end
 function _duck_type(duck_type_expr)
     jl_struct = JLStruct(duck_type_expr)
 
-    required_behaviors = get_required_behaviors(jl_struct)
-
+    required_behaviors, narrow = get_required_behaviors(jl_struct)
+    @show narrow
     behaviors = [behavior.behavior for behavior in required_behaviors]
 
     all_func_exprs = Iterators.flatmap(required_behaviors) do rb
@@ -24,6 +24,7 @@ function _duck_type(duck_type_expr)
 
     quote
         $(esc(codegen_ast(type_def)))
+        $(codegen_ast(narrow))
         $(all_func_exprs...)
     end
 end
@@ -36,13 +37,36 @@ end
 
 function get_required_behaviors(jl_struct::JLStruct)
     required_behaviors = RequiredBehavior[]
+    narrow = nothing
     for expr in jl_struct.misc
-        is_function(expr) || continue
-        general_func, behavior, func_args = make_general_function(expr)
-        specific_func = make_specific_function(expr, func_args, jl_struct)
-        push!(required_behaviors, RequiredBehavior(behavior, general_func, specific_func))
+        if is_function(expr)
+            general_func, behavior, func_args = make_general_function(expr)
+            specific_func = make_specific_function(expr, func_args, jl_struct)
+            push!(
+                required_behaviors, RequiredBehavior(behavior, general_func, specific_func))
+        elseif expr.head == :macrocall && expr.args[1] == Symbol("@narrow")
+            narrow = make_narrow(jl_struct.name, expr)
+        end
     end
-    return required_behaviors
+    return (required_behaviors, narrow)
+end
+
+function make_narrow(duck_name, expr)
+    line_node, user_narrow_def = if expr.args[2] isa LineNumberNode
+        (expr.args[2], JLFunction(expr.args[3]))
+    else
+        (nothing, JLFunction(expr.args[2]))
+    end
+    @assert length(user_narrow_def.args)==1 "narrow must take exactly one argument which is the type of the object to be wrapped."
+    user_arg_name = get_name(FuncArg(only(user_narrow_def.args)))
+    narrow_f = JLFunction(quote
+        function $(GlobalRef(@__MODULE__, :narrow))(::Type{<:$(esc(duck_name))},
+                ::Type{$(esc(user_arg_name))}) where {$(esc(user_arg_name))}
+            $(esc(user_narrow_def.body))
+        end
+    end)
+    narrow_f.line = line_node
+    return narrow_f
 end
 
 function make_general_function(expr)
