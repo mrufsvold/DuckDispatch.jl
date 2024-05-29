@@ -49,6 +49,7 @@ Returns the `DuckType` that a `Guise` implements.
 get_duck_type(::Type{Guise{D, T}}) where {D, T} = D
 get_duck_type(::Type{Guise{D}}) where {D} = D
 function get_duck_type(u::UnionAll)
+    # I hate this too. But it works.
     duck_type_internal_name = u.body.body.parameters[1].name
     duck_type_module = duck_type_internal_name.module
     duck_type_name = duck_type_internal_name.name
@@ -91,3 +92,48 @@ end
 for duck type dispatching.
 """
 struct DispatchedOnDuckType end
+
+# This makes VSCode missing ref happy
+@static if false
+    local TypeAnnotation, none, symbol, expr
+end
+
+@sum_type TypeAnnotation :hidden begin
+    none
+    symbol(::Symbol)
+    expr(::Expr)
+end
+
+function type_annotation(t)
+    if t isa Symbol
+        return TypeAnnotation'.symbol(t)
+    end
+    return TypeAnnotation'.expr(t)
+end
+
+struct FuncArg
+    name::Symbol
+    type_annotation::TypeAnnotation
+end
+function FuncArg(arg)
+    name, type_ann = if arg isa Symbol
+        (arg, TypeAnnotation'.none)
+    elseif arg.head == :(::) && length(arg.args) == 1
+        (gensym(:arg), type_annotation(first(arg.args)))
+    elseif arg.head == :(::) && length(arg.args) == 2
+        (arg.args[1], type_annotation(arg.args[2]))
+    else
+        error(lazy"Unknown arg type $arg")
+    end
+    return FuncArg(name, type_ann)
+end
+
+function get_type_annotation(f::FuncArg)
+    return @cases f.type_annotation begin
+        none => :Any
+        symbol(x) => x
+        expr(x) => x
+    end
+end
+
+get_name(f::FuncArg) = f.name

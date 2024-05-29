@@ -23,7 +23,6 @@ using SumTypes: @sum_type, @cases
 using ExproniconLite: JLFunction, JLStruct, is_function, codegen_ast
 
 include("Utils.jl")
-include("MetaUtils.jl")
 include("Types.jl")
 include("TypeUtils.jl")
 include("BehaviorDispatch.jl")
