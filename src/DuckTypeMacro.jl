@@ -23,7 +23,7 @@ function _duck_type(duck_type_expr)
     )
 
     quote
-        $(esc(type_def))
+        $(esc(codegen_ast(type_def)))
         $(all_func_exprs...)
     end
 end
@@ -39,7 +39,7 @@ function get_required_behaviors(jl_struct::JLStruct)
     for expr in jl_struct.misc
         is_function(expr) || continue
         general_func, behavior, func_args = make_general_function(expr)
-        specific_func = make_specific_function(expr, func_args)
+        specific_func = make_specific_function(expr, func_args, jl_struct)
         push!(required_behaviors, RequiredBehavior(behavior, general_func, specific_func))
     end
     return required_behaviors
@@ -48,10 +48,9 @@ end
 function make_general_function(expr)
     general_func = JLFunction(expr)
     func_args = FuncArg.(general_func.args)
-
-    general_func.whereparams = Any[:DuckT]
+    general_func.rettype = nothing
     general_func.args = [if_This_then_expr(
-                             func_arg, :(DuckDispatch.Guise{DuckT, <:Any}))
+                             func_arg, :($Guise{<:Any, <:Any}))
                          for func_arg in func_args]
     behavior = :($Behavior{
         typeof($(general_func.name)),
@@ -66,25 +65,26 @@ function make_general_function(expr)
     return (general_func, behavior, func_args)
 end
 
-function make_specific_function(expr, func_args)
+function make_specific_function(expr, func_args, jl_struct)
     specific_func = JLFunction(expr)
     add_whereparams!(specific_func, jl_struct.typevars)
     specific_func.args = [if_This_then_expr(
                               func_arg, :(
                                   $Guise{
-                                  $(jl_struct.name{$(jl_struct.typevars...)}), <:Any}
+                                  $(jl_struct.name){$(jl_struct.typevars...)}, <:Any}
                               )
                           )
                           for func_arg in func_args]
     specific_func.body = quote
         $run_behavior($(specific_func.name), $(get_name.(func_args)...))
     end
+    return specific_func
 end
 
 function if_This_then_expr(func_arg::FuncArg, expr)
     t_ann = get_type_annotation(func_arg)
     n = get_name(func_arg)
-    return :($n::($t_ann === $This ? $expr : t_ann))
+    return :($n::($t_ann === $This ? $expr : $t_ann))
 end
 
 function add_whereparams!(jl_func::JLFunction, typevars)
@@ -100,17 +100,21 @@ function add_whereparams!(jl_func::JLFunction, typevars)
         # we also need to check if the typevar is already in the list
         # duplicates will throw an error
         if !(t in where_list)
-            pushfirst!(where_list, x)
+            pushfirst!(where_list, t)
         end
     end
-    jl_func.whereparams = whereparams
+    jl_func.whereparams = where_list
 end
 
 function duck_super_type(jl_struct, behaviors)
+    super_type_union = jl_struct.supertype isa Nothing ?
+                       Union{} :
+                       :(Union{$(jl_struct.supertype)})
+
     super_block = quote
         $DuckType{
             Union{$(behaviors...)},
-            Union{$(jl_struct.supertype)}
+            $super_type_union
         }
     end
     return super_block
