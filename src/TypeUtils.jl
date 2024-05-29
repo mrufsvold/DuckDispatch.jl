@@ -142,8 +142,14 @@ Rewraps a `Guise` to implement a different `DuckType`.
 """
 rewrap(x::Guise{I1, <:Any}, ::Type{I2}) where {I1, I2 <: DuckType} = wrap(I2, unwrap(x))
 
-function rewrap_where_this(sig::Type{<:Tuple}, ::Type{D}, args::Tuple) where {D <: DuckType}
-    return tuple_map(fieldtypes(sig), args) do T, arg
-        T === This ? rewrap(arg, D) : arg
-    end
+@generated function wrap_if_this(::Type{T}, ::Type{D}, arg) where {T, D}
+    T === This && return :(rewrap(arg, D))
+    return :(arg)
+end
+
+@generated function rewrap_where_this(
+        ::Type{T}, ::Type{D}, args::Tuple) where {D <: DuckType, T <: Tuple}
+    fields = fieldtypes(T)
+    duck_types = tuple((D for _ in fields)...)
+    return :(tuple_map(wrap_if_this, $fields, $duck_types, args))
 end
