@@ -74,6 +74,17 @@ include("DuckTypeMacro.jl")
         return T[x for x in arg1]
     end
     @test my_collect((1, 2)) == [1, 2]
+
+    ch = Channel{Int}() do ch
+        for i in 1:2
+            put!(ch, i)
+        end
+    end
+
+    DuckDispatch.@duck_dispatch function container_collect(arg1::IsContainer{T}) where {T}
+        return T[x for x in arg1]
+    end
+    @test_throws ErrorException container_collect(ch)
 end
 
 end

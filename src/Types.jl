@@ -65,11 +65,14 @@ get_duck_type(::G) where {G <: Guise} = get_duck_type(G)
 struct TypeChecker{Data}
     t::Type{Data}
 end
-function (::TypeChecker{Data})(::Type{B}) where {Data, B <: Behavior}
+@generated function (::TypeChecker{Data})(::Type{B}) where {
+        Data, B <: Behavior}
     sig_types = fieldtypes(get_signature(B))::Tuple
     func_type = get_func_type(B)
-    replaced = map((x) -> x === This ? Data : x, sig_types)
-    return !isempty(methods(func_type.instance, replaced))
+    replaced = tuple_map((x) -> x === This ? Data : x, sig_types)
+    checks = :($hasmethod($(func_type.instance), $replaced) ||
+               !isempty(methods($(func_type.instance), $replaced)))
+    return checks
 end
 
 """
@@ -83,8 +86,7 @@ end
 function (x::CheckQuacksLike{T})(::Type{M}) where {T, M}
     method_arg_types = fieldtypes(M)
     input_arg_types = (DispatchedOnDuckType, fieldtypes(T)...)
-    can_quack = map(quacks_like, method_arg_types, input_arg_types)
-    return all(can_quack)
+    return tuple_all(quacks_like, method_arg_types, input_arg_types)
 end
 
 """

@@ -47,23 +47,6 @@ Returns the union of all the behaviors that a `DuckType` implements, including t
 end
 
 """
-    `find_original_duck_type(::Type{D}, ::Type{B}) -> Union{Nothing, DataType}`
-Returns the DuckType that originally implemented a behavior `B` in the DuckType `D`.
-This allows us to take a `DuckType` which was composed of many others, find the original,
-and then rewrap to that original type.
-"""
-function find_original_duck_type(::Type{D}, ::Type{B}) where {D, B}
-    these_behaviors = tuple_collect(get_top_level_behaviors(D))
-    if any(implies(b, B) for b in these_behaviors)
-        return D
-    end
-    for dt in tuple_collect(get_duck_types(D))
-        child_res = find_original_duck_type(dt, B)::Union{Nothing, DataType}
-        !isnothing(child_res) && return child_res
-    end
-end
-
-"""
     implies(::Type{DuckType}, ::Type{DuckType}})
 Return true if the first DuckType is a composition that contains the second DuckType.
 """
@@ -91,7 +74,27 @@ function implies(::Type{T1}, ::Type{T2}) where {T1, T2}
 end
 function implies(t1::Tuple, t2::Tuple)
     length(t1) != length(t2) && return false
-    return all(Iterators.map(implies, t1, t2))
+    return tuple_all(implies, t1, t2)
+end
+
+"""
+    `find_original_duck_type(::Type{D}, ::Type{B}) -> Union{Nothing, DataType}`
+Returns the DuckType that originally implemented a behavior `B` in the DuckType `D`.
+This allows us to take a `DuckType` which was composed of many others, find the original,
+and then rewrap to that original type.
+"""
+@generated function find_original_duck_type(::Type{D}, ::Type{B}) where {D, B}
+    these_behaviors = tuple_collect(get_top_level_behaviors(D))
+    res = if any(implies(b, B) for b in these_behaviors)
+        D
+    end
+    for dt in tuple_collect(get_duck_types(D))
+        child_res = find_original_duck_type(dt, B)::Union{Nothing, DataType}
+        if !isnothing(child_res)
+            res = child_res
+        end
+    end
+    return :($res)
 end
 
 """
@@ -139,8 +142,14 @@ Rewraps a `Guise` to implement a different `DuckType`.
 """
 rewrap(x::Guise{I1, <:Any}, ::Type{I2}) where {I1, I2 <: DuckType} = wrap(I2, unwrap(x))
 
-function rewrap_where_this(sig::Type{<:Tuple}, ::Type{D}, args::Tuple) where {D <: DuckType}
-    return map(fieldtypes(sig), args) do T, arg
-        T === This ? rewrap(arg, D) : arg
-    end
+@generated function wrap_if_this(::Type{T}, ::Type{D}, arg) where {T, D}
+    T === This && return :(rewrap(arg, D))
+    return :(arg)
+end
+
+@generated function rewrap_where_this(
+        ::Type{T}, ::Type{D}, args::Tuple) where {D <: DuckType, T <: Tuple}
+    fields = fieldtypes(T)
+    duck_types = tuple((D for _ in fields)...)
+    return :(tuple_map(wrap_if_this, $fields, $duck_types, args))
 end

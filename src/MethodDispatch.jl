@@ -88,7 +88,7 @@ Base.@constprop :aggressive function wrap_args(duck_sigs, args)
     check_quacks_like = CheckQuacksLike(Tuple{arg_types...})
 
     # this is a tuple of bools which indicate if the method matches the input args
-    quack_check_result = map(check_quacks_like, duck_sigs)
+    quack_check_result = tuple_map(check_quacks_like, duck_sigs)
 
     number_of_matches = sum(quack_check_result)
     # todo make this a MethodError
@@ -97,7 +97,7 @@ Base.@constprop :aggressive function wrap_args(duck_sigs, args)
 
     method_match = get_most_specific(quack_check_result, duck_sigs)
     method_types = fieldtypes(method_match)[2:end]
-    wrapped_args = map(wrap_with_guise, method_types, args)
+    wrapped_args = tuple_map(wrap_with_guise, method_types, args)
     return wrapped_args
 end
 
