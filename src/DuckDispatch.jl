@@ -19,7 +19,7 @@ end
 # using Base: tail
 using TestItems: @testitem
 using SumTypes: @sum_type, @cases
-using ExproniconLite: JLFunction, JLStruct, is_function, xcall, codegen_ast
+using ExproniconLite: JLFunction, JLStruct, is_function, codegen_ast
 
 include("Utils.jl")
 include("MetaUtils.jl")
