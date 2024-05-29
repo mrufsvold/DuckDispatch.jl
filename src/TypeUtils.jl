@@ -86,6 +86,13 @@ end
 function implies(::Type{Behavior{F1, S1}}, ::Type{Behavior{F2, S2}}) where {F1, S1, F2, S2}
     return F1 === F2 && S2 <: S1
 end
+function implies(::Type{T1}, ::Type{T2}) where {T1, T2}
+    return T2 <: T1
+end
+function implies(t1::Tuple, t2::Tuple)
+    length(t1) != length(t2) && return false
+    return all(Iterators.map(implies, t1, t2))
+end
 
 """
     `quacks_like(DuckT, Data) -> Bool`
@@ -131,16 +138,6 @@ unwrap(x) = x
 Rewraps a `Guise` to implement a different `DuckType`.
 """
 rewrap(x::Guise{I1, <:Any}, ::Type{I2}) where {I1, I2 <: DuckType} = wrap(I2, unwrap(x))
-
-"""
-    `unwrap_where_this(sig::Type{<:Tuple}, args::Tuple) -> Tuple`
-For each element of `args`, if the corresponding element of `sig` is `This`, unwrap that element.
-"""
-function unwrap_where_this(sig::Type{<:Tuple}, args::Tuple)
-    return map(sig, args) do (T, arg)
-        T === This ? unwrap(arg) : arg
-    end
-end
 
 function rewrap_where_this(sig::Type{<:Tuple}, ::Type{D}, args::Tuple) where {D <: DuckType}
     return map(fieldtypes(sig), args) do T, arg

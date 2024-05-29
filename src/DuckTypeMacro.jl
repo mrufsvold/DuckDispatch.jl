@@ -1,3 +1,26 @@
+"""
+    `@duck_type(struct_expr)`
+
+This macro is used to define a duck type. The `struct_expr` should be a struct definition
+with the following format:
+
+```julia
+@duck_type struct NewDuckType{T,N} <: Union{DuckType1, DuckType2{T}}
+    function method1(::This, arg1::Int, arg2::N)::Vector{T} end
+    function method2(::T, arg1::This)::This end
+    @narrow T -> NewDuckType{eltype(T), size(T)}
+end
+```
+
+Any `DuckType`s listed in the `Union` will be considered as composed types. The
+new `DuckType` will implement the behaviors of all the `DuckType`s listed in the `Union`.
+
+`This` is a type which stands for the current DuckType. It allows behavior signatures to
+be generically inherited by composed `DuckTypes`
+
+The `@narrow` macro is used to define a function that will take a type and return the most
+specific parameterization of the `DuckType` that can wrap that type. 
+"""
 macro duck_type(duck_type_expr)
     return _duck_type(duck_type_expr)
 end
@@ -6,7 +29,6 @@ function _duck_type(duck_type_expr)
     jl_struct = JLStruct(duck_type_expr)
 
     required_behaviors, narrow = get_required_behaviors(jl_struct)
-    @show narrow
     behaviors = [behavior.behavior for behavior in required_behaviors]
 
     all_func_exprs = Iterators.flatmap(required_behaviors) do rb
@@ -23,12 +45,15 @@ function _duck_type(duck_type_expr)
     )
 
     quote
-        $(esc(codegen_ast(type_def)))
+        Core.@__doc__ $(esc(codegen_ast(type_def)))
         $(codegen_ast(narrow))
         $(all_func_exprs...)
     end
 end
 
+"""
+RequiredBehavior is a struct that holds the required behaviors for a duck type.
+"""
 struct RequiredBehavior
     behavior::Expr
     general_catch::JLFunction
@@ -51,6 +76,7 @@ function get_required_behaviors(jl_struct::JLStruct)
     return (required_behaviors, narrow)
 end
 
+"""Create the `narrow` function for the duck type."""
 function make_narrow(duck_name, expr)
     line_node, user_narrow_def = if expr.args[2] isa LineNumberNode
         (expr.args[2], JLFunction(expr.args[3]))
@@ -69,6 +95,7 @@ function make_narrow(duck_name, expr)
     return narrow_f
 end
 
+"""creates the fallback function for the duck type"""
 function make_general_function(expr)
     general_func = JLFunction(expr)
     func_args = FuncArg.(general_func.args)
@@ -89,6 +116,7 @@ function make_general_function(expr)
     return (general_func, behavior, func_args)
 end
 
+"""creates the specific function for the duck type"""
 function make_specific_function(expr, func_args, jl_struct)
     specific_func = JLFunction(expr)
     add_whereparams!(specific_func, jl_struct.typevars)
@@ -105,6 +133,7 @@ function make_specific_function(expr, func_args, jl_struct)
     return specific_func
 end
 
+"""A higher order function for checking type annotations for if they are an instance of `This`"""
 function if_This_then_expr(func_arg::FuncArg, expr)
     t_ann = get_type_annotation(func_arg)
     n = get_name(func_arg)

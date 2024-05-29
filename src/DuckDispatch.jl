@@ -1,10 +1,10 @@
 module DuckDispatch
 
+export This, @duck_type, @duck_dispatch
 if VERSION >= v"1.11"
     public
     Guise,
     DuckType,
-    This,
     narrow,
     wrap,
     unwrap,
@@ -23,7 +23,6 @@ using SumTypes: @sum_type, @cases
 using ExproniconLite: JLFunction, JLStruct, is_function, codegen_ast
 
 include("Utils.jl")
-include("MetaUtils.jl")
 include("Types.jl")
 include("TypeUtils.jl")
 include("BehaviorDispatch.jl")
@@ -36,7 +35,21 @@ include("DuckTypeMacro.jl")
         function Base.iterate(::DuckDispatch.This, ::Any)::Union{Nothing, Tuple{T, <:Any}} end
         @narrow T -> Iterable{eltype(T)}
     end
+    @duck_dispatch function my_collect(arg1::Iterable{T}) where {T}
+        v = T[]
+        for x in arg1
+            push!(v, x)
+        end
+        return v
+    end
 
+    @test my_collect((1, 2)) == [1, 2]
+    @test my_collect(1:2) == [1, 2]
+    @test my_collect((i for i in 1:2)) == [1, 2]
+
+    """
+    `IsContainer{T}` is a duck type that requires `T` to be an iterable and indexible type of a finite length.
+    """
     DuckDispatch.@duck_type struct IsContainer{T} <: Union{Iterable{T}}
         function Base.length(::DuckDispatch.This)::Int end
         function Base.getindex(::DuckDispatch.This, ::Int)::T end
@@ -57,10 +70,10 @@ include("DuckTypeMacro.jl")
     @test iterate(DuckDispatch.wrap(IsContainer{Int}, [1, 2, 3])) == (1, 2)
     @test length(DuckDispatch.wrap(IsContainer{Int}, [1, 2, 3])) == 3
 
-    DuckDispatch.@duck_dispatch function collect_ints(arg1::IsContainer{T}) where {T}
+    DuckDispatch.@duck_dispatch function my_collect(arg1::IsContainer{T}) where {T}
         return T[x for x in arg1]
     end
-    @test collect_ints((1, 2)) == [1, 2]
+    @test my_collect((1, 2)) == [1, 2]
 end
 
 end

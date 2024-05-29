@@ -4,14 +4,12 @@ authors = ["Micah Rufsvold"]
 version = "0.0.1"
 
 [deps]
-BangBang = "198e06fe-97b7-11e9-32a5-e1d131e6ad66"
 ExproniconLite = "55351af7-c7e9-48d6-89ff-24e801d99491"
 SumTypes = "8e1ec7a9-0e02-4297-b0fe-6433085c89f2"
 TestItems = "1c621080-faea-4a02-84b6-bbd5e436b8fe"
 
 [compat]
 Aqua = "0.8"
-BangBang = "0.4"
 ExproniconLite = "0.10"
 JET = "0.8"
 JuliaFormatter = "1"
