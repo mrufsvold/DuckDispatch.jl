@@ -1,177 +1,121 @@
-struct RequireStatements
-    interface_type::Symbol
-    typevars::Any
-    method_list::Vector{RequiredFunctionality}
-    require::Union{Nothing, Expr}
-    narrow::Union{Nothing, Expr}
-end
-function RequireStatements(jl_struct::JLStruct)
-    method_list = RequiredFunctionality[]
-    require = nothing
-    narrow = nothing
-
-    full_interface_name = get_full_struct_name(jl_struct)
-    escaped_type_vars = jl_struct.typevars isa Nothing ? nothing : Expr[esc(t) for t in jl_struct.typevars]
-
-    for expr in jl_struct.misc
-        if expr.head == :macrocall
-            if expr.args[1] == Symbol("@require")
-                require = expr
-            elseif expr.args[1] == Symbol("@narrow")
-                narrow = expr
-            end
-        elseif is_function(expr)
-            push!(
-                method_list, 
-                RequiredFunctionality(JLFunction(expr), full_interface_name, escaped_type_vars)
-            )
-        else
-            error("Unknown expression in definition of $(jl_struct.name): $expr")
-        end
-    end
-    return RequireStatements(jl_struct.name, jl_struct.typevars, method_list, require, narrow)
-end
-
-function find_require_statement(statements)
-    check = (ex) -> ex.head == :macrocall && ex.args[1] == Symbol("@require")
-    return findfirst(check, statements)
-end
-
-function find_narrow_statement(statements)
-    check = (ex) -> ex.head == :macrocall && ex.args[1] == Symbol("@narrow")
-    return findfirst(check, statements)
-end
-
 macro duck_type(duck_type_expr)
     return _duck_type(duck_type_expr)
 end
 
 function _duck_type(duck_type_expr)
     jl_struct = JLStruct(duck_type_expr)
-    required_statements = RequireStatements(jl_struct)
 
-    main_struct_expr = create_main_struct_def(duck_type_expr)
-    required_method_expr = create_required_methods_func(required_statements)
-    required_method_dispatch_exprs = create_exprs_for_required_methods(required_statements)
+    required_behaviors = get_required_behaviors(jl_struct)
 
-    # todo -- we need to remove the @require and the @narrow macro statements from .misc
-    # we need to _required_methods to maybe return the MeetType of the required interfaces
-    # then we need _required_methods to recursively descend into the meet types 
+    behaviors = [behavior.behavior for behavior in required_behaviors]
 
-    # then we need to add a loop to the macro output that evals the rewrap function
-    # for each inherited method 
+    all_func_exprs = Iterators.flatmap(required_behaviors) do rb
+        (esc(codegen_ast(rb.general_catch)), esc(codegen_ast(rb.specific_catch)))
+    end
 
-    # lastly, we need to generate the narrow function for the new interface.
+    # grab the pieces of the struct that we need
+    type_def = JLStruct(;
+        name = jl_struct.name,
+        typevars = jl_struct.typevars,
+        supertype = duck_super_type(jl_struct, behaviors),
+        line = jl_struct.line,
+        doc = jl_struct.doc
+    )
 
-    # todo -- also need to dispatch for get_return_type
-    return quote
-        $main_struct_expr
-        $required_method_expr
-        $(required_method_dispatch_exprs...)
-        
+    quote
+        $(esc(codegen_ast(type_def)))
+        $(all_func_exprs...)
     end
 end
 
-"""
-just creates `struct NewGuiseName <: DuckType end`
-"""
-function create_main_struct_def(duck_type_expr)
-    # todo: how to make this struct documentable?
-    jl_struct = JLStruct(duck_type_expr)
-    empty!(jl_struct.constructors)
-    empty!(jl_struct.misc)
-    jl_struct.supertype = DuckType
-    return codegen_ast(jl_struct)
+struct RequiredBehavior
+    behavior::Expr
+    general_catch::JLFunction
+    specific_catch::JLFunction
 end
 
-"""
-creates this expr:
-
-```
-function _requires_methods(::Type{T}) where T<:NewGuiseName
-    return tuple(
-        RequiredMethod{method1}(Tuple{This}), 
-        RequiredMethod{method2}(Tuple{This, Other, Types, This})
-        )
-end
-```
-"""
-function create_required_methods_func(required_statements::RequireStatements)
-    method_list = required_statements.method_list
-    req_method_exprs = map(create_required_method, method_list)
-    req_method_ref = esc(GlobalRef(DuckDispatch, :_required_methods))
-    return codegen_ast(JLFunction(;
-        name = req_method_ref,
-        args = [esc(:(::$Type{T}))],
-        whereparams = [esc(:(T<:$(required_statements.interface_type)))],
-        body = :(tuple($(req_method_exprs...)))
-        ))
-end
-
-
-function create_required_method(req_method::JLFunction)
-    t_anns = [
-        is_This(t_ann) ? This : t_ann
-        for t_ann in get_type_annotation.(FuncArg.(req_method.args))
-    ]
-    
-    req_method = esc(:($RequiredMethod{$(req_method.name)}(Tuple{$(t_anns...)})))
-    return req_method
-end
-function create_required_method(req_func::RequiredFunctionality)
-    return create_required_method(req_func.func)
-end
-
-function create_exprs_for_required_methods(required_statements::RequireStatements)
-    required_functionalities = required_statements.method_list
-
-    req_exprs = Vector{Expr}(undef, length(required_functionalities))
-    for (i, req_func) in enumerate(required_functionalities)
-        req_exprs[i] = create_new_dispatch(req_func)
+function get_required_behaviors(jl_struct::JLStruct)
+    required_behaviors = RequiredBehavior[]
+    for expr in jl_struct.misc
+        is_function(expr) || continue
+        general_func, behavior, func_args = make_general_function(expr)
+        specific_func = make_specific_function(expr, func_args, jl_struct)
+        push!(required_behaviors, RequiredBehavior(behavior, general_func, specific_func))
     end
-    return req_exprs
+    return required_behaviors
 end
 
-function create_new_dispatch(rf::RequiredFunctionality)
-    args = arg_with_this_check.(rf.args::Vector{FuncArg}, Ref(rf.interface_name))
-    arg_names = get_arg_names(rf)
-    jlf = JLFunction(;
-        name = rf.name,
-        args = args,
-        body = quote
-            return run($(rf.name), tuple($(arg_names...)))
-        end,
-        whereparams = rf.interface_type_vars
+function make_general_function(expr)
+    general_func = JLFunction(expr)
+    func_args = FuncArg.(general_func.args)
+    general_func.rettype = nothing
+    general_func.args = [if_This_then_expr(
+                             func_arg, :($Guise{<:Any, <:Any}))
+                         for func_arg in func_args]
+    behavior = :($Behavior{
+        typeof($(general_func.name)),
+        Tuple{$(get_type_annotation.(func_args)...)}
+    })
+    general_func.body = quote
+        $dispatch_behavior(
+            $behavior,
+            $(get_name.(func_args)...)
         )
-    return codegen_ast(jlf)
+    end
+    return (general_func, behavior, func_args)
 end
 
+function make_specific_function(expr, func_args, jl_struct)
+    specific_func = JLFunction(expr)
+    add_whereparams!(specific_func, jl_struct.typevars)
+    specific_func.args = [if_This_then_expr(
+                              func_arg, :(
+                                  $Guise{
+                                  $(jl_struct.name){$(jl_struct.typevars...)}, <:Any}
+                              )
+                          )
+                          for func_arg in func_args]
+    specific_func.body = quote
+        $run_behavior($(specific_func.name), $(get_name.(func_args)...))
+    end
+    return specific_func
+end
 
-# @testitem "interface macro" begin
-#     import Base: eltype
+function if_This_then_expr(func_arg::FuncArg, expr)
+    t_ann = get_type_annotation(func_arg)
+    n = get_name(func_arg)
+    return :($n::($t_ann === $This ? $expr : $t_ann))
+end
 
-#     DuckDispatch.@interface struct HasEltype1{T}
-#         function eltype(::DuckDispatch.This)::T where T end
-#     end
-#     function DuckDispatch.narrow(::Type{HasEltype1}, ::Type{D}) where D
-#         E = eltype(D)
-#         return HasEltype1{E}
-#     end
+function add_whereparams!(jl_func::JLFunction, typevars)
+    where_list = if jl_func.whereparams isa Nothing
+        []
+    else
+        jl_func.whereparams
+    end
+    # we want to insert the typevars from the struct def first because they
+    # come first in the language of the macro. But we also want to retain their order
+    # in case the are dependent on each other. So we reverse, then pushfirst
+    for t in Iterators.reverse(typevars)
+        # we also need to check if the typevar is already in the list
+        # duplicates will throw an error
+        if !(t in where_list)
+            pushfirst!(where_list, t)
+        end
+    end
+    jl_func.whereparams = where_list
+end
 
-#     # macro needs to:
-#     # 1. create a struct that is a subtype of DuckType
-#     @test HasEltype1 <: DuckDispatch.DuckType
-#     # 2. create a function that returns the required methods
-#     @test DuckDispatch._required_methods(HasEltype1) == (
-#         DuckDispatch.RequiredMethod{eltype}(Tuple{DuckDispatch.This}),
-#     )
-#     # 3. create a new method for each required method
-#     @test length(methods(eltype, (HasEltype1,))) == 1
+function duck_super_type(jl_struct, behaviors)
+    super_type_union = jl_struct.supertype isa Nothing ?
+                       Union{} :
+                       :(Union{$(jl_struct.supertype)})
 
-#     # 4. for each required interface, add more new methods with unwrap
-#     function check_eltype(x)
-#         return eltype(x)
-#     end
-#     @test check_eltype(DuckDispatch.wrap(HasEltype1, [1])) == Int
-# end
-
+    super_block = quote
+        $DuckType{
+            Union{$(behaviors...)},
+            $super_type_union
+        }
+    end
+    return super_block
+end
