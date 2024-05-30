@@ -10,6 +10,8 @@ function duck_dispatch_logic(ex)
     arg_count = length(f.args)
     anys = tuple((Any for _ in f.args)...)
     untyped_args = tuple((get_name(func_arg) for func_arg in func_args)...)
+    type_params = [esc(gensym(Symbol("T$i"))) for i in 1:arg_count]
+    paramed_args = [:(($a)::($p)) for (a, p) in zip(untyped_args, type_params)]
     user_args_with_guise_check = arg_with_guise_wrap_check.(func_args)
     pushfirst!(user_args_with_guise_check, :(::$DispatchedOnDuckType))
 
@@ -36,11 +38,13 @@ function duck_dispatch_logic(ex)
             sig_types = map(extract_sig_type, ms)
             filter!(is_dispatched_on_ducktype, sig_types)
             duck_sigs = unwrap_guise_types.(sig_types)
-            tuple(duck_sigs...)
+            Tuple{duck_sigs...}
         end
 
-        function (f::typeof($f_name))($(untyped_args...); kwargs...)
-            wrapped_args = wrap_args(duck_sigs, tuple($(untyped_args...)))
+        function (f::typeof($f_name))(
+                $(paramed_args...); kwargs...) where {$(type_params...)}
+            args = tuple($(untyped_args...))::Tuple{$(type_params...)}
+            wrapped_args = wrap_args(duck_sigs, args)
             return @inline f($DispatchedOnDuckType(), wrapped_args...; kwargs...)
         end
     end
@@ -54,15 +58,13 @@ function get_methods(::Type{F}) where {F}
     return ()
 end
 
-function wrap_with_guise(target_type::Type{T}, arg) where {T}
+function wrap_with_guise(::Type{T}, arg::D) where {T, D}
     DuckT = if T <: DuckType
-        target_type
-    elseif T <: Guise
-        error("Should not be getting a Guise here")
+        T
     else
         return arg
     end
-    return wrap(DuckT, arg)
+    return wrap(DuckT, arg)::Guise{narrow(DuckT, D), D}
 end
 
 function unwrap_guise_types(::Type{T}) where {T}
@@ -90,7 +92,8 @@ function is_dispatched_on_ducktype(sig)
     return fieldtypes(sig)[1] == DispatchedOnDuckType
 end
 
-Base.@constprop :aggressive function wrap_args(duck_sigs, args)
+Base.Base.@assume_effects :foldable function wrap_args(::Type{T}, args) where {T}
+    duck_sigs = fieldtypes(T)
     check_quacks_like = CheckQuacksLike(typeof(args))
 
     # this is a tuple of bools which indicate if the method matches the input args
@@ -100,17 +103,36 @@ Base.@constprop :aggressive function wrap_args(duck_sigs, args)
     # todo make this a MethodError
     number_of_matches == 0 &&
         error("Could not find a matching method for the given arguments.")
-
-    method_match = get_most_specific(quack_check_result, duck_sigs)
-    method_types = fieldtypes(method_match)[2:end]
-    wrapped_args = tuple_map(wrap_with_guise, method_types, args)
+    method_types = most_specific_method(T, Val(quack_check_result))
+    wrapped_args = wrap_each_arg(method_types, args)
     return wrapped_args
+end
+
+@generated function wrap_each_arg(::Type{T}, args) where {T}
+    types = fieldtypes(T)
+    vars = [gensym(:var) for _ in types]
+    input_types = fieldtypes(args)
+    calcs = [:($v = $wrap_with_guise($t, args[$i]::$in_t))
+             for (i, (v, t, in_t)) in enumerate(zip(vars, types, input_types))]
+    res = :(return ($(vars...),))
+    return quote
+        $(calcs...)
+        $res
+    end
 end
 
 Base.@assume_effects :foldable function get_most_specific(quack_check_result, duck_sigs)
     matches = [duck_sigs[[quack_check_result...]]...]::Vector
     sort!(matches; lt = implies)
     return first(matches)
+end
+
+@generated function most_specific_method(
+        ::Type{T}, ::Val{quack_check_result}) where {T, quack_check_result}
+    duck_sigs = fieldtypes(T)
+    method_match = get_most_specific(quack_check_result, duck_sigs)
+    method_types = Tuple{fieldtypes(method_match)[2:end]...}
+    return :($method_types)
 end
 
 function check_param_for_duck_and_wrap(T)
