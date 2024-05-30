@@ -7,6 +7,7 @@ version = "0.0.1"
 ExproniconLite = "55351af7-c7e9-48d6-89ff-24e801d99491"
 SumTypes = "8e1ec7a9-0e02-4297-b0fe-6433085c89f2"
 TestItems = "1c621080-faea-4a02-84b6-bbd5e436b8fe"
+Tricks = "410a4b4d-49e4-4fbc-ab6d-cb71b17b3775"
 
 [compat]
 Aqua = "0.8"

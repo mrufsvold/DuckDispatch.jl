@@ -58,6 +58,11 @@ function get_duck_type(u::UnionAll)
 end
 get_duck_type(::G) where {G <: Guise} = get_duck_type(G)
 
+function replace_this(::Type{T}, ::Type{Data}) where {T, Data}
+    field_types = static_fieldtypes(T)
+    replaced = tuple_map((x) -> x === This ? Data : x, field_types)
+    return Tuple{replaced...}
+end
 """
 `TypeChecker{Data}` is a callable struct which checks if there is a method implemented for
 `Data` that matches the signature of a `Behavior`.
@@ -67,11 +72,10 @@ struct TypeChecker{Data}
 end
 @generated function (::TypeChecker{Data})(::Type{B}) where {
         Data, B <: Behavior}
-    sig_types = fieldtypes(get_signature(B))::Tuple
+    replaced = replace_this(get_signature(B), Data)
     func_type = get_func_type(B)
-    replaced = tuple_map((x) -> x === This ? Data : x, sig_types)
-    checks = :($hasmethod($(func_type.instance), $replaced) ||
-               !isempty(methods($(func_type.instance), $replaced)))
+    checks = :($static_hasmethod($(func_type.instance), $replaced) ||
+               !isempty(static_methods($(func_type.instance), $replaced)))
     return checks
 end
 
@@ -84,8 +88,8 @@ struct CheckQuacksLike{T}
     t::Type{T}
 end
 function (x::CheckQuacksLike{T})(::Type{M}) where {T, M}
-    method_arg_types = fieldtypes(M)
-    input_arg_types = (DispatchedOnDuckType, fieldtypes(T)...)
+    method_arg_types = static_fieldtypes(M)
+    input_arg_types = (DispatchedOnDuckType, static_fieldtypes(T)...)
 
     return tuple_all(quacks_like, method_arg_types, input_arg_types)
 end
