@@ -102,7 +102,12 @@ end
     `quacks_like(DuckT, Data) -> Bool`
 Checks if `Data` implements all required `Behavior`s of `DuckT`.
 """
-@generated function quacks_like(::Type{DuckT}, ::Type{Data}) where {DuckT <: DuckType, Data}
+function quacks_like(::Type{DuckT}, ::Type{Data}) where {DuckT <: DuckType, Data}
+    narrowed = narrow(DuckT, Data)
+    return _quacks_like(narrowed, Data)
+end
+@generated function _quacks_like(
+        ::Type{DuckT}, ::Type{Data}) where {DuckT <: DuckType, Data}
     type_checker = TypeChecker(Data)
     behavior_list = all_behaviors_of(DuckT)
     check_quotes = Expr[

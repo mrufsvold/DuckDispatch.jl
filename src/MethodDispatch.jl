@@ -66,10 +66,10 @@ function wrap_with_guise(target_type::Type{T}, arg) where {T}
 end
 
 function unwrap_guise_types(::Type{T}) where {T}
-    types = fieldtypes(T)
-    return map(types) do t
+    types = map(fieldtypes(T)) do t
         t <: Guise ? get_duck_type(t) : t
     end
+    return Tuple{types...}
 end
 
 function is_duck_dispatched(m::Method, arg_count)
