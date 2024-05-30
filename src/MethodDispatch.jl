@@ -92,7 +92,7 @@ function is_dispatched_on_ducktype(sig)
     return fieldtypes(sig)[1] == DispatchedOnDuckType
 end
 
-Base.Base.@assume_effects :foldable function wrap_args(::Type{T}, args) where {T}
+function wrap_args(::Type{T}, args) where {T}
     duck_sigs = fieldtypes(T)
     check_quacks_like = CheckQuacksLike(typeof(args))
 
