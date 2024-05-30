@@ -55,3 +55,6 @@ end
     return T[x for x in arg1]
 end
 ```
+
+# More Information
+See [the developer documentation](./docs/src/developer_docs.md) for more information the internals of this package.
