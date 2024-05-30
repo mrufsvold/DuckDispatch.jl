@@ -10,6 +10,7 @@ function get_top_level_behaviors(::Type{D}) where {D <: DuckType}
 end
 # helper function to extract the behaviors from the abstract DuckType
 extract_behaviors(::Type{DuckType{B, D}}) where {B, D} = B
+
 """
     `get_duck_types(::Type{<:DuckType}) -> Union{DuckType...}`
 Returns the duck types that a `DuckType` is composed of.

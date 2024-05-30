@@ -16,14 +16,14 @@ Dispatches a behavior to the correct method based on the arguments passed in.
 It is called by the fallback definition of a behavior. It looks up the original
 DuckType that implemented the behavior and calls the method on that DuckType.
 """
-Base.@assume_effects :foldable function dispatch_behavior(
+@inline function dispatch_behavior(
         behavior::Type{Behavior{F, S}}, args...; kwargs...) where {F, S}
     DuckT = get_specific_duck_type(fieldtypes(S), args)
     OGDuckT = find_original_duck_type(DuckT, behavior)
     if isnothing(OGDuckT)
         error("No fitting iterate method found for $DuckT")
     end
-    return F.instance(rewrap_where_this(S, OGDuckT, args)...;
+    return @inline F.instance(rewrap_where_this(S, OGDuckT, args)...;
         kwargs...)
 end
 
