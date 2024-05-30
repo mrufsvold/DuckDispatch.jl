@@ -29,6 +29,7 @@ include("TypeUtils.jl")
 include("BehaviorDispatch.jl")
 include("MethodDispatch.jl")
 include("DuckTypeMacro.jl")
+include("PrettyPrinting.jl")
 
 @testitem "Test Basics" begin
     DuckDispatch.@duck_type struct Iterable{T}
