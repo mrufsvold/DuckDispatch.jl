@@ -31,9 +31,13 @@ function duck_dispatch_logic(ex)
 
         Core.@__doc__ $user_func
 
-        const duck_sigs = tuple(
-            $filter!(is_dispatched_on_ducktype, $extract_sig_type.($methods($f_name)))...
-        )
+        const duck_sigs = let
+            ms = $methods($f_name)
+            sig_types = map(extract_sig_type, ms)
+            filter!(is_dispatched_on_ducktype, sig_types)
+            duck_sigs = unwrap_guise_types.(sig_types)
+            tuple(duck_sigs...)
+        end
 
         function (f::typeof($f_name))($(untyped_args...); kwargs...)
             wrapped_args = wrap_args(duck_sigs, tuple($(untyped_args...)))
@@ -54,11 +58,18 @@ function wrap_with_guise(target_type::Type{T}, arg) where {T}
     DuckT = if T <: DuckType
         target_type
     elseif T <: Guise
-        get_duck_type(target_type)
+        error("Should not be getting a Guise here")
     else
         return arg
     end
     return wrap(DuckT, arg)
+end
+
+function unwrap_guise_types(::Type{T}) where {T}
+    types = map(fieldtypes(T)) do t
+        t <: Guise ? get_duck_type(t) : t
+    end
+    return Tuple{types...}
 end
 
 function is_duck_dispatched(m::Method, arg_count)
@@ -79,13 +90,8 @@ function is_dispatched_on_ducktype(sig)
     return fieldtypes(sig)[1] == DispatchedOnDuckType
 end
 
-Base.@constprop :aggressive function get_arg_types(::T) where {T}
-    return fieldtypes(T)
-end
-
 Base.@constprop :aggressive function wrap_args(duck_sigs, args)
-    arg_types = get_arg_types(args)
-    check_quacks_like = CheckQuacksLike(Tuple{arg_types...})
+    check_quacks_like = CheckQuacksLike(typeof(args))
 
     # this is a tuple of bools which indicate if the method matches the input args
     quack_check_result = tuple_map(check_quacks_like, duck_sigs)

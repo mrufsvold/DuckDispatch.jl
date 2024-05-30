@@ -86,6 +86,7 @@ end
 function (x::CheckQuacksLike{T})(::Type{M}) where {T, M}
     method_arg_types = fieldtypes(M)
     input_arg_types = (DispatchedOnDuckType, fieldtypes(T)...)
+
     return tuple_all(quacks_like, method_arg_types, input_arg_types)
 end
 
