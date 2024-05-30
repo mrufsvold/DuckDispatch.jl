@@ -155,7 +155,7 @@ end
 
 @generated function rewrap_where_this(
         ::Type{T}, ::Type{D}, args::Tuple) where {D <: DuckType, T <: Tuple}
-    fields = fieldtypes(T)
+    fields = static_fieldtypes(T)
     duck_types = tuple((D for _ in fields)...)
     return :(tuple_map(wrap_if_this, $fields, $duck_types, args))
 end

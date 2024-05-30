@@ -50,14 +50,6 @@ function duck_dispatch_logic(ex)
     end
 end
 
-"""
-    get_methods(::Type{F})
-Returns the list of DuckType methods that are implemented for the function `F`.
-"""
-function get_methods(::Type{F}) where {F}
-    return ()
-end
-
 function wrap_with_guise(::Type{T}, arg::D) where {T, D}
     DuckT = if T <: DuckType
         T
@@ -68,14 +60,14 @@ function wrap_with_guise(::Type{T}, arg::D) where {T, D}
 end
 
 function unwrap_guise_types(::Type{T}) where {T}
-    types = map(fieldtypes(T)) do t
+    types = map(static_fieldtypes(T)) do t
         t <: Guise ? get_duck_type(t) : t
     end
     return Tuple{types...}
 end
 
 function is_duck_dispatched(m::Method, arg_count)
-    sig_types = fieldtypes(m.sig)
+    sig_types = static_fieldtypes(m.sig)
     # the signature will have Tuple{typeof(f), DispatchedOnDuckType, arg_types...}
     length(sig_types) != 2 + arg_count && return false
     sig_types[2] != DispatchedOnDuckType && return false
@@ -84,16 +76,16 @@ end
 
 function extract_sig_type(m::Method)
     sig = m.sig
-    sig_types = fieldtypes(sig)[2:end]
+    sig_types = static_fieldtypes(sig)[2:end]
     return Tuple{sig_types...}
 end
 
 function is_dispatched_on_ducktype(sig)
-    return fieldtypes(sig)[1] == DispatchedOnDuckType
+    return static_fieldtypes(sig)[1] == DispatchedOnDuckType
 end
 
 function wrap_args(::Type{T}, args) where {T}
-    duck_sigs = fieldtypes(T)
+    duck_sigs = static_fieldtypes(T)
     check_quacks_like = CheckQuacksLike(typeof(args))
 
     # this is a tuple of bools which indicate if the method matches the input args
@@ -109,9 +101,9 @@ function wrap_args(::Type{T}, args) where {T}
 end
 
 @generated function wrap_each_arg(::Type{T}, args) where {T}
-    types = fieldtypes(T)
+    types = static_fieldtypes(T)
     vars = [gensym(:var) for _ in types]
-    input_types = fieldtypes(args)
+    input_types = static_fieldtypes(args)
     calcs = [:($v = $wrap_with_guise($t, args[$i]::$in_t))
              for (i, (v, t, in_t)) in enumerate(zip(vars, types, input_types))]
     res = :(return ($(vars...),))
@@ -129,9 +121,9 @@ end
 
 @generated function most_specific_method(
         ::Type{T}, ::Val{quack_check_result}) where {T, quack_check_result}
-    duck_sigs = fieldtypes(T)
+    duck_sigs = static_fieldtypes(T)
     method_match = get_most_specific(quack_check_result, duck_sigs)
-    method_types = Tuple{fieldtypes(method_match)[2:end]...}
+    method_types = Tuple{static_fieldtypes(method_match)[2:end]...}
     return :($method_types)
 end
 
@@ -153,5 +145,5 @@ function arg_with_guise_wrap_check(func_arg::FuncArg)
 end
 
 function length_matches(arg_types, arg_count)
-    return length(fieldtypes(arg_types)) == arg_count
+    return length(static_fieldtypes(arg_types)) == arg_count
 end

@@ -18,7 +18,7 @@ DuckType that implemented the behavior and calls the method on that DuckType.
 """
 @inline function dispatch_behavior(
         behavior::Type{Behavior{F, S}}, args...; kwargs...) where {F, S}
-    DuckT = get_specific_duck_type(fieldtypes(S), args)
+    DuckT = get_specific_duck_type(static_fieldtypes(S), args)
     OGDuckT = find_original_duck_type(DuckT, behavior)
     if isnothing(OGDuckT)
         error("No fitting iterate method found for $DuckT")

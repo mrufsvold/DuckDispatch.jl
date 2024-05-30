@@ -9,10 +9,10 @@ Returns a tuple of the types in a Union type.
 end
 
 function make_f_calls(f, tuples)
-    first_tuple_types = fieldtypes(tuples[1])
+    first_tuple_types = static_fieldtypes(tuples[1])
     tuple_lengths = length(first_tuple_types)
     number_of_tuples = length(tuples)
-    @assert all(length(fieldtypes(t)) == tuple_lengths for t in tuples) "all tuples must be same length"
+    @assert all(length(static_fieldtypes(t)) == tuple_lengths for t in tuples) "all tuples must be same length"
     f_calls = [:(f($(
                    (:(tuples[$j][$i]) for j in 1:number_of_tuples)...)
                )
