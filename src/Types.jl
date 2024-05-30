@@ -144,3 +144,13 @@ function get_type_annotation(f::FuncArg)
 end
 
 get_name(f::FuncArg) = f.name
+
+struct MissingBehaviorCall <: Exception
+           f::Type
+           args
+           duck_type::Type
+       end
+
+function Base.showerror(io::IO, e::MissingBehaviorCall)
+    print(io, "no method of $(e.f.instance) for args `$(e.args)` based on Behaviors set for $(e.duck_type)")
+end

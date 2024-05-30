@@ -21,7 +21,7 @@ DuckType that implemented the behavior and calls the method on that DuckType.
     DuckT = get_specific_duck_type(static_fieldtypes(S), args)
     OGDuckT = find_original_duck_type(DuckT, behavior)
     if isnothing(OGDuckT)
-        error("No fitting iterate method found for $DuckT")
+        throw(MissingBehaviorCall(F, typeof(args), DuckT))
     end
     return @inline F.instance(rewrap_where_this(S, OGDuckT, args)...;
         kwargs...)

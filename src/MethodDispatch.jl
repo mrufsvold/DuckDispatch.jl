@@ -44,7 +44,7 @@ function duck_dispatch_logic(ex)
         function (f::typeof($f_name))(
                 $(paramed_args...); kwargs...) where {$(type_params...)}
             args = tuple($(untyped_args...))::Tuple{$(type_params...)}
-            wrapped_args = wrap_args(duck_sigs, args)
+            wrapped_args = $wrap_args(f, duck_sigs, args)
             return @inline f($DispatchedOnDuckType(), wrapped_args...; kwargs...)
         end
     end
@@ -84,7 +84,7 @@ function is_dispatched_on_ducktype(sig)
     return static_fieldtypes(sig)[1] == DispatchedOnDuckType
 end
 
-function wrap_args(::Type{T}, args) where {T}
+function wrap_args(f, ::Type{T}, args) where {T}
     duck_sigs = static_fieldtypes(T)
     check_quacks_like = CheckQuacksLike(typeof(args))
 
@@ -92,9 +92,9 @@ function wrap_args(::Type{T}, args) where {T}
     quack_check_result = tuple_map(check_quacks_like, duck_sigs)
 
     number_of_matches = sum(quack_check_result)
-    # todo make this a MethodError
-    number_of_matches == 0 &&
-        error("Could not find a matching method for the given arguments.")
+
+    number_of_matches == 0 && throw(MethodError(f, args))
+
     method_types = most_specific_method(T, Val(quack_check_result))
     wrapped_args = wrap_each_arg(method_types, args)
     return wrapped_args

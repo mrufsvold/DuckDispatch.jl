@@ -54,7 +54,7 @@ include("PrettyPrinting.jl")
     """
     DuckDispatch.@duck_type struct IsContainer{T} <: Union{Iterable{T}}
         function Base.length(::DuckDispatch.This)::Int end
-        function Base.getindex(::DuckDispatch.This, ::Int)::T end
+        function Base.getindex(::DuckDispatch.This, ::Any)::T end
         @narrow T -> IsContainer{eltype(T)}
     end
 
@@ -86,7 +86,12 @@ include("PrettyPrinting.jl")
     DuckDispatch.@duck_dispatch function container_collect(arg1::IsContainer{T}) where {T}
         return T[x for x in arg1]
     end
-    @test_throws ErrorException container_collect(ch)
+    @test_throws MethodError container_collect(ch)
+
+    DuckDispatch.@duck_dispatch function bad_index(arg1::Iterable{T}, arg2) where {T}
+        return arg1[arg2]
+    end
+    @test_throws DuckDispatch.MissingBehaviorCall bad_index([1,2], :a)
 end
 
 end
