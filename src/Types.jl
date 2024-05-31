@@ -75,7 +75,7 @@ end
     replaced = replace_this(get_signature(B), Data)
     func_type = get_func_type(B)
     checks = :($static_hasmethod($(func_type.instance), $replaced) ||
-               !isempty(static_methods($(func_type.instance), $replaced)))
+               static_method_count($(func_type.instance), $replaced) > 0)
     return checks
 end
 

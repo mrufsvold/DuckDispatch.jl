@@ -21,7 +21,7 @@ end
 using TestItems: @testitem
 using SumTypes: @sum_type, @cases
 using ExproniconLite: JLFunction, JLStruct, is_function, codegen_ast
-using Tricks: static_fieldtypes, static_methods, static_hasmethod
+using Tricks: static_fieldtypes, static_hasmethod, static_method_count
 
 include("Utils.jl")
 include("Types.jl")
