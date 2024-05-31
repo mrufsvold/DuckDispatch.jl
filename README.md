@@ -1,4 +1,4 @@
-# DuckDispatch
+# DuckDispatch <img src="docs\assests\DDTRANSPARENT.png" alt="Duck Dispatch logo" height="30"/>
 
 [![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://mrufsvold.github.io/DuckDispatch.jl/stable/)
 [![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://mrufsvold.github.io/DuckDispatch.jl/dev/)
@@ -6,10 +6,12 @@
 [![Coverage](https://codecov.io/gh/mrufsvold/DuckDispatch.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/mrufsvold/DuckDispatch.jl)
 [![Aqua](https://raw.githubusercontent.com/JuliaTesting/Aqua.jl/master/badge.svg)](https://github.com/JuliaTesting/Aqua.jl)
 
+
+
 `DuckDispatch.jl` is an experimental package which attempts to make it easy to dispatch a method based on the behavior of a type, not its place in the type hierarchy. At a high-level, it allows the user to define a number of method signatures which constitute a `DuckType`. Then, any type which has an implementation for those methods can be wrapped in a `Guise{D<:DuckType, T}`. This `Guise` type is then hooked into the normal Julia dispatch machinery.
 
 # Why?
-It often does not care if an input is a vector, a channel, or a set; it matters that it is iterable. While a completely generic argument will work, it also provides no guarantees for correctness.
+It often does not matter if an input is of a specific type (like a vector, a channel, or a set); it matters that it is has a certain functionality (like iterable). While creating a method with a completely generic argument will work, it also provides no guarantees that the input will have the necessary methods.
 
 By dispatching on a `DuckType`, we get:
 1) compile time guarantees that there won't be any method errors for the `Behavior`s defined for the `DuckType`
