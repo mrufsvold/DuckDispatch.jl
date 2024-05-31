@@ -1,4 +1,4 @@
-# DuckDispatch <img src="https://lh3.googleusercontent.com/d/1EuhJxXx9-0gTe33lXRAO61NJabxLqE67" alt="Duck Dispatch logo" height="30"/>
+# DuckDispatch.jl <img src="https://lh3.googleusercontent.com/d/1EuhJxXx9-0gTe33lXRAO61NJabxLqE67" alt="Duck Dispatch logo" height="30"/>
 
 [![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://mrufsvold.github.io/DuckDispatch.jl/stable/)
 [![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://mrufsvold.github.io/DuckDispatch.jl/dev/)
